@@ -4,13 +4,13 @@
 import Base: truncate
 import ITensorBase: scalartype, uniqueinds
 import MatrixAlgebraKit as MAK
-import TensorAlgebra: datatype, matricize
+import TensorAlgebra: datatype
 using Adapt: Adapt
 using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commoninds,
     dimnames, hascommoninds, id, inds, name, nameddims, noncommoninds, noprime, plev, prime,
     replaceinds, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
 using LinearAlgebra: LinearAlgebra
-using TensorAlgebra: TensorAlgebra, project, scalar, tryproject
+using TensorAlgebra: TensorAlgebra, matricize, project, scalar, tryproject
 
 function project_aux(v::AbstractVector{<:Number}, i::Index)
     length(v) == length(i) ||

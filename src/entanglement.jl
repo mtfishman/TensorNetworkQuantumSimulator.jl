@@ -28,13 +28,6 @@ function renyi_entropy(ρ::AbstractMatrix, α::Real; normalize = true)
     return log(sum(λs .^ α)) / (1 - α)
 end
 
-function matricize(a::ITensor, row_inds = filter(i -> plev(i) ==0, inds(a)))
-    col_inds = prime.(row_inds)
-    row_name = ITensorBase.uniquename(ITensorBase.IndexName)
-    col_name = ITensorBase.uniquename(ITensorBase.IndexName)
-    return Array(matricize(a, Tuple(row_inds) => row_name, Tuple(col_inds) => col_name))
-end
-
 """
     renyi_entropy(a::ITensor, row_inds = ...; normalize = true, α = 1)
 
@@ -52,7 +45,7 @@ and primed indices are column indices.
 - `α`: Rényi index (default `1`, i.e. von Neumann entropy).
 """
 function renyi_entropy(a::ITensor, row_inds = filter(i -> plev(i) ==0, inds(a)); normalize = true, α = 1)
-    return renyi_entropy(matricize(a, row_inds), α)
+    return renyi_entropy(Array(matricize(a, row_inds, prime.(row_inds))), α)
 end
 
 """
