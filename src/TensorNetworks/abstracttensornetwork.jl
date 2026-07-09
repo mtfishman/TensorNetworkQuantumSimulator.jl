@@ -27,15 +27,14 @@ function maxvirtualdim(tn::AbstractTensorNetwork)
     return maximum(maximum.([length.(virtualinds(tn, e)) for e in edges(tn)]))
 end
 
-# Compare by name, not by `Index` equality: a shared graded link is stored nondual
-# on one endpoint and dual (conjugated) on the other, so the two `Index` objects
-# differ even though they name the same bond.
+# `setdiff` is by-name (dual-insensitive), so a shared graded link, stored nondual on one
+# endpoint and dual on the other, is still excluded here.
 function uniqueinds(tn::AbstractTensorNetwork, v)
-    tv_inds = Index[i for i in inds(tn[v])]
+    tv_inds = collect(inds(tn[v]))
     vns = neighbors(tn, v)
     isempty(vns) && return tv_inds
-    neighbor_names = reduce(vcat, [[name(i) for i in inds(tn[vn])] for vn in vns])
-    return filter(i -> name(i) ∉ neighbor_names, tv_inds)
+    neighbor_inds = reduce(vcat, [collect(inds(tn[vn])) for vn in vns])
+    return setdiff(tv_inds, neighbor_inds)
 end
 
 function setindex_preserve!(tn::AbstractTensorNetwork, value::ITensor, vertex)

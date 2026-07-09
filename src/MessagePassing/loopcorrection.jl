@@ -48,7 +48,7 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
             t_inds = intersect(inds(t), linds)
             if !isempty(t_inds)
                 t_ind = only(t_inds)
-                t_ind_pos = findfirst(x -> name(x) == name(t_ind), linds)
+                t_ind_pos = findfirst(==(t_ind), linds)
                 t = replaceind(t, t_ind, linds_sim[t_ind_pos])
                 setindex_preserve!(bpc, t, src(e))
             end
