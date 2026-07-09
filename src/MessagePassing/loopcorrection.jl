@@ -36,9 +36,9 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
             mer = message(bpc, reverse(e))
             linds = filter(i -> plev(i) == 0, inds(mer))
             linds_sim = sim.(linds)
-            mer = replaceinds(mer, linds, linds_sim)
+            mer = replaceinds(mer, (linds .=> linds_sim)...)
             if network(bpc) isa TensorNetworkState
-                mer = replaceinds(mer, conj.(prime.(linds)), conj.(prime.(linds_sim)))
+                mer = replaceinds(mer, (conj.(prime.(linds)) .=> conj.(prime.(linds_sim)))...)
             end
             ms = messages(bpc)
             set!(ms, reverse(e), mer)
@@ -49,7 +49,7 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
             if !isempty(t_inds)
                 t_ind = only(t_inds)
                 t_ind_pos = findfirst(==(t_ind), linds)
-                t = replaceind(t, t_ind, linds_sim[t_ind_pos])
+                t = replaceinds(t, t_ind => linds_sim[t_ind_pos])
                 setindex_preserve!(bpc, t, src(e))
             end
             push!(updated_es, e)
@@ -105,7 +105,7 @@ function weight(bpc::BeliefPropagationCache, eg)
     end
     ts = [incoming_ms; local_tensors; antiprojectors]
     seq = any(hasqns.(ts)) ? contraction_sequence(ts; alg = "optimal") : contraction_sequence(ts; alg = "omeinsum", optimizer = GreedyMethod())
-    return scalar(contract(ts; sequence = seq))
+    return scalar(contract_network(ts; sequence = seq))
 end
 
 #Vectorized version of weight

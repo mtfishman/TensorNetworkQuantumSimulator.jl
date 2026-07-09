@@ -16,14 +16,14 @@ t_a, t_b, t_c = randn(i), randn(i, j), randn(j)
 tn = TensorNetwork(Dictionary(["a", "b", "c"], [t_a, t_b, t_c]))
 
 # Contracts to a scalar
-z = contract(tn; alg = "exact")
+z = contract_network(tn; alg = "exact")
 
 # Random tensor network with graph-specified connectivity and given bond dimension
 g = named_grid((3, 3))
 tn = random_tensornetwork(Float64, g; bond_dimension = 4)
 
 # Should return a scalar
-z = contract(tn; alg = "exact")
+z = contract_network(tn; alg = "exact")
 ```
 
 `TensorNetwork` is a useful type for representing objects like classical partition functions or the solutions to counting problems where you don't need the concept of a physical site index.
@@ -34,7 +34,7 @@ The library ships with a built-in constructor for the classical Ising-model part
 g = named_grid((4, 4))
 β = 0.4
 Z_tn = ising_partitionfunction(g, β)              # uniform J = 1
-Z = contract(Z_tn; alg = "bp")                    # approximate via belief propagation
+Z = contract_network(Z_tn; alg = "bp")                    # approximate via belief propagation
 
 # Anisotropic couplings: pass a Dictionary keyed by edges
 Js = Dictionary(edges(g), [isodd(src(e)[1]) ? 1.0 : 0.5 for e in edges(g)])

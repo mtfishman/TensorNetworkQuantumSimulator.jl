@@ -50,10 +50,10 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
 
     # --- the sequence the backend returns is a *correct* contraction: executing it gives the
     #     same scalar as the independent `optimal` backend.
-    ref = scalar(TNQS.contract(tensors; sequence = TNQS.contraction_sequence(tensors; alg = "optimal")))
+    ref = scalar(TNQS.contract_network(tensors; sequence = TNQS.contraction_sequence(tensors; alg = "optimal")))
     for optimizer in (GreedyMethod(), TreeSA())
         seq = TNQS.contraction_sequence(tensors; alg = "omeinsum", optimizer)
-        @test scalar(TNQS.contract(tensors; sequence = seq)) ≈ ref
+        @test scalar(TNQS.contract_network(tensors; sequence = seq)) ≈ ref
     end
 
     # --- open network: result is a tensor with dangling indices (iy non-empty).
@@ -64,7 +64,7 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
     open_tensors = [X, Y, Z]   # open indices: p, r, t
     seq_open = TNQS.contraction_sequence(open_tensors; alg = "omeinsum", optimizer = GreedyMethod())
     @test sort(collect_leaves!(Int[], seq_open)) == [1, 2, 3]
-    @test TNQS.contract(open_tensors; sequence = seq_open) ≈
-        TNQS.contract(open_tensors; sequence = TNQS.contraction_sequence(open_tensors; alg = "optimal"))
+    @test TNQS.contract_network(open_tensors; sequence = seq_open) ≈
+        TNQS.contract_network(open_tensors; sequence = TNQS.contraction_sequence(open_tensors; alg = "optimal"))
 end
 end

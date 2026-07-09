@@ -5,7 +5,7 @@ const TNQS = TensorNetworkQuantumSimulator
 using Test: @testset, @test
 
 # Fully contract a tensor-network state to a dense tensor over its site indices.
-contract_dense(ψ) = TNQS.contract([ψ[v] for v in vertices(ψ)])
+contract_dense(ψ) = TNQS.contract_network([ψ[v] for v in vertices(ψ)])
 
 @testset "Tensor-network addition (direct sum)" begin
     Random.seed!(123)

@@ -92,7 +92,7 @@ export
     TensorNetworkState,
     AbstractTensorNetwork,
     partitionfunction,
-    contract,
+    contract_network,
     TreeSA,
     GreedyMethod,
     SABipartite,

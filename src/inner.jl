@@ -52,7 +52,7 @@ function inner(
     )
     blf_tensors = bp_factors(blf, collect(vertices(ket(blf))))
     seq = contraction_sequence(blf_tensors; contraction_sequence_kwargs...)
-    return scalar(contract(blf_tensors; sequence = seq))
+    return scalar(contract_network(blf_tensors; sequence = seq))
 end
 
 function inner(alg::Algorithm, cache::AbstractBeliefPropagationCache; max_configuration_size = nothing)

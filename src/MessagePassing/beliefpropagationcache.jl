@@ -119,7 +119,7 @@ default_bp_update_kwargs(bp_cache::BeliefPropagationCache) = default_bp_update_k
 function make_hermitian(A::ITensor)
     A_inds = inds(A)
     @assert length(A_inds) == 2
-    return (A + swapind(conj(A), first(A_inds), last(A_inds))) / 2
+    return (A + replaceinds(conj(A), first(A_inds) => last(A_inds), last(A_inds) => first(A_inds))) / 2
 end
 
 function rescale_messages!(bp_cache::BeliefPropagationCache, edges::Vector{<:AbstractEdge})
@@ -159,20 +159,20 @@ function loop_correlation(bpc::BeliefPropagationCache, loop::Vector{<:NamedEdge}
         if !isempty(t_inds)
             t_ind = only(t_inds)
             t_ind_pos = findfirst(x -> x == t_ind, e_virtualinds)
-            t = replaceind(t, t_ind, e_virtualinds_sim[t_ind_pos])
+            t = replaceinds(t, t_ind => e_virtualinds_sim[t_ind_pos])
         end
         push!(local_tensors, t)
     end
 
     tensors = ITensor[local_tensors; reduce(vcat, [bp_factors(bpc, v) for v in setdiff(vs, [src_vertex])]); incoming_messages]
     seq = contraction_sequence(tensors; alg = "omeinsum", optimizer = GreedyMethod())
-    t = contract(tensors; sequence = seq)
+    t = contract_network(tensors; sequence = seq)
 
     row_name = ITensorBase.uniquename(ITensorBase.IndexName)
     col_name = ITensorBase.uniquename(ITensorBase.IndexName)
     t = matricize(t, Tuple(e_virtualinds) => row_name, Tuple(e_virtualinds_sim) => col_name)
     t = adapt(Vector{ComplexF64})(t)
-    t = array(t)
+    t = Array(t)
     λs = reverse(sort(LinearAlgebra.eigvals(t); by = abs))
     err = 1 - abs(λs[1]) / sum(abs.(λs))
     return err

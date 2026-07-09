@@ -195,7 +195,7 @@ function set_interpartition_messages!(
             # The stitching leg is minted trivial (all weight in the charge-0 sector)
             # so it follows the messages' backend; the all-ones filling matches the
             # legacy dense `delta(ind)`.
-            ind = settags(trivialrange(first(inds(m1)), virt_dim), "m$(i)$(i + 1)")
+            ind = settags(trivialrange(first(inds(m1)), virt_dim), "m" => "$(i)$(i + 1)")
             t = fill!(similar(m1, (ind,)), true)
             # The two copies of the stitching leg contract against each other along the
             # message MPS, so one side takes the conjugate.
@@ -433,7 +433,7 @@ function generic_apply(
         L, R = MAK.left_orth(T, keep; trunc = itensor_trunc(; cutoff, maxdim))
         b = only(commoninds(L, R))
         bnew = settags(b, "link" => "$i")
-        L, R = replaceind(L, b, bnew), replaceind(R, b, bnew)
+        L, R = replaceinds(L, b => bnew), replaceinds(R, b => bnew)
         push!(out, L)
         carry = R
         left_link = only(commoninds(L, R))
@@ -447,7 +447,7 @@ function generic_apply(
         L, R = MAK.right_orth(out[i], [bond]; trunc = itensor_trunc(; cutoff, maxdim))
         b = only(commoninds(L, R))
         bnew = settags(b, "link" => "$(i - 1)")
-        L, R = replaceind(L, b, bnew), replaceind(R, b, bnew)
+        L, R = replaceinds(L, b => bnew), replaceinds(R, b => bnew)
         out[i] = R
         out[i - 1] *= L
     end
@@ -653,7 +653,7 @@ function path_contract(
             m != nothing && push!(contract_list, m)
 
             sequence = contraction_sequence(contract_list; alg = "optimal")
-            m = contract(contract_list; sequence)
+            m = contract_network(contract_list; sequence)
             prev_edge = e
         end
 
@@ -662,13 +662,13 @@ function path_contract(
         append!(contract_list, incoming_ms)
         push!(contract_list, m)
         sequence = contraction_sequence(contract_list; alg = "optimal")
-        numer = contract(contract_list; sequence)
+        numer = contract_network(contract_list; sequence)
     else
         contract_list = norm_factors(network(cache), vs; op_strings = op_string_f)
         incoming_ms = incoming_messages(cache, only(vs))
         append!(contract_list, incoming_ms)
         sequence = contraction_sequence(contract_list; alg = "optimal")
-        numer = contract(contract_list; sequence)
+        numer = contract_network(contract_list; sequence)
     end
 
     return numer, denom

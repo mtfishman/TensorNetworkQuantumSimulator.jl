@@ -44,7 +44,7 @@ function full_update(
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)
-        Rᵥ₁, Rᵥ₂ = U * replaceind(sqrtS, v, prime(u)), replaceind(sqrtS, u, prime(u)) * V
+        Rᵥ₁, Rᵥ₂ = U * replaceinds(sqrtS, v => prime(u)), replaceinds(sqrtS, u => prime(u)) * V
         # Best-effort truncation error from norms; suffers catastrophic cancellation when little is
         # discarded. TODO: expose MatrixAlgebraKit's `ϵ` from `ITensorBase.svd_trunc` and use it here.
         total = abs2(norm(M))
@@ -69,34 +69,34 @@ function fidelity(
     p_sind, q_sind = trycommonind(p_cur, gate), trycommonind(q_cur, gate)
     p_sind_sim, q_sind_sim = sim(p_sind), sim(q_sind)
     gate_sq =
-        gate * replaceinds(conj(gate), Index[p_sind, q_sind], Index[p_sind_sim, q_sind_sim])
+        gate * replaceinds(conj(gate), p_sind => p_sind_sim, q_sind => q_sind_sim)
     term1_tns = vcat(
         [
             p_prev,
             q_prev,
-            replaceind(prime(conj(p_prev)), prime(p_sind), p_sind_sim),
-            replaceind(prime(conj(q_prev)), prime(q_sind), q_sind_sim),
+            replaceinds(prime(conj(p_prev)), prime(p_sind) => p_sind_sim),
+            replaceinds(prime(conj(q_prev)), prime(q_sind) => q_sind_sim),
             gate_sq,
         ],
         envs,
     )
     sequence = contraction_sequence(term1_tns; alg = "optimal")
-    term1 = contract(term1_tns; sequence)
+    term1 = contract_network(term1_tns; sequence)
 
     term2_tns = vcat(
         [
             p_cur,
             q_cur,
-            replaceind(prime(conj(p_cur)), prime(p_sind), p_sind),
-            replaceind(prime(conj(q_cur)), prime(q_sind), q_sind),
+            replaceinds(prime(conj(p_cur)), prime(p_sind) => p_sind),
+            replaceinds(prime(conj(q_cur)), prime(q_sind) => q_sind),
         ],
         envs,
     )
     sequence = contraction_sequence(term2_tns; alg = "optimal")
-    term2 = contract(term2_tns; sequence)
+    term2 = contract_network(term2_tns; sequence)
     term3_tns = vcat([p_prev, q_prev, prime(conj(p_cur)), prime(conj(q_cur)), gate], envs)
     sequence = contraction_sequence(term3_tns; alg = "optimal")
-    term3 = contract(term3_tns; sequence)
+    term3 = contract_network(term3_tns; sequence)
 
     f = scalar(term3) / sqrt(scalar(term1) * scalar(term2))
     return f * conj(f)
@@ -120,7 +120,7 @@ function optimise_p_q(
     )
     b = only(commoninds(p_cur, q_cur))
     bnew = settags(b, tags(trycommonind(p, q)))
-    p_cur, q_cur = replaceind(p_cur, b, bnew), replaceind(q_cur, b, bnew)
+    p_cur, q_cur = replaceinds(p_cur, b => bnew), replaceinds(q_cur, b => bnew)
 
     fstart = print_fidelity_loss ? fidelity(envs, p_cur, q_cur, p, q, o) : 0
 
@@ -130,18 +130,18 @@ function optimise_p_q(
     function b(p::ITensor, q::ITensor, o::ITensor, envs::Vector{ITensor}, r::ITensor)
         ts = vcat(ITensor[p, q, o, conj(prime(r))], envs)
         sequence = contraction_sequence(ts; alg = "optimal")
-        return noprime(contract(ts; sequence))
+        return noprime(contract_network(ts; sequence))
     end
 
     function M_p(envs::Vector{ITensor}, p_q_tensor::ITensor, s_ind, apply_tensor::ITensor)
         ts = vcat(
             ITensor[
-                p_q_tensor, replaceinds(prime(conj(p_q_tensor)), prime.(s_ind), s_ind), apply_tensor,
+                p_q_tensor, replaceinds(prime(conj(p_q_tensor)), (prime.(s_ind) .=> s_ind)...), apply_tensor,
             ],
             envs,
         )
         sequence = contraction_sequence(ts; alg = "optimal")
-        return noprime(contract(ts; sequence))
+        return noprime(contract_network(ts; sequence))
     end
     for i in 1:nfullupdatesweeps
         b_vec = b(p, q, o, envs, q_cur)

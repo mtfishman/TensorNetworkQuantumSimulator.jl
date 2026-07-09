@@ -46,8 +46,8 @@ function simple_update(
         sqrt_envs_v1, inv_sqrt_envs_v1 = first.(sqrt_inv_sqrt_envs_v1), last.(sqrt_inv_sqrt_envs_v1)
         sqrt_envs_v2, inv_sqrt_envs_v2 = first.(sqrt_inv_sqrt_envs_v2), last.(sqrt_inv_sqrt_envs_v2)
 
-        ψᵥ₁ = contract([ψ⃗[1]; sqrt_envs_v1])
-        ψᵥ₂ = contract([ψ⃗[2]; sqrt_envs_v2])
+        ψᵥ₁ = contract_network([ψ⃗[1]; sqrt_envs_v1])
+        ψᵥ₂ = contract_network([ψ⃗[2]; sqrt_envs_v2])
         sᵥ₁ = commoninds(ψ⃗[1], o)
         sᵥ₂ = commoninds(ψ⃗[2], o)
         Qᵥ₁, Rᵥ₁ = MAK.qr_compact(ψᵥ₁, setdiff(uniqueinds(ψᵥ₁, ψᵥ₂), sᵥ₁))
@@ -63,7 +63,7 @@ function simple_update(
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)
-        Rᵥ₁, Rᵥ₂ = U * replaceind(sqrtS, v, prime(u)), replaceind(sqrtS, u, prime(u)) * V
+        Rᵥ₁, Rᵥ₂ = U * replaceinds(sqrtS, v => prime(u)), replaceinds(sqrtS, u => prime(u)) * V
         s_values = S
         # Best-effort truncation error from norms (SVD preserves the Frobenius norm); suffers
         # catastrophic cancellation when little is discarded. TODO: expose MatrixAlgebraKit's `ϵ`
@@ -71,8 +71,8 @@ function simple_update(
         total = abs2(norm(oR))
         err = iszero(total) ? zero(real(scalartype(oR))) :
             max(zero(real(scalartype(oR))), 1 - abs2(norm(S)) / total)
-        Qᵥ₁ = contract([Qᵥ₁; conj.(inv_sqrt_envs_v1)])
-        Qᵥ₂ = contract([Qᵥ₂; conj.(inv_sqrt_envs_v2)])
+        Qᵥ₁ = contract_network([Qᵥ₁; conj.(inv_sqrt_envs_v1)])
+        Qᵥ₂ = contract_network([Qᵥ₂; conj.(inv_sqrt_envs_v2)])
         updated_tensors = [Qᵥ₁ * Rᵥ₁, Qᵥ₂ * Rᵥ₂]
         if normalize_tensors
             s_values = normalize(s_values)
@@ -81,7 +81,7 @@ function simple_update(
 
     if normalize_tensors
         for ψᵥ in updated_tensors
-            rmul!(data(ψᵥ), inv(norm(ψᵥ)))
+            rmul!(ψᵥ, inv(norm(ψᵥ)))
         end
     end
 

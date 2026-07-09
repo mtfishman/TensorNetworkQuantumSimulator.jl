@@ -36,7 +36,7 @@ using Test: @testset, @test, @test_throws
 
         ψdag = map_virtualinds(prime, map_tensors(conj, ψ))
         @test ψdag isa TensorNetwork
-        @test TNQS.contract(ψdag; alg = "exact") ≈ conj(TNQS.contract(ψ; alg = "exact"))
+        @test TNQS.contract_network(ψdag; alg = "exact") ≈ conj(TNQS.contract_network(ψ; alg = "exact"))
 
         v = first(vertices(g))
         rem_vertex!(ψ, v)

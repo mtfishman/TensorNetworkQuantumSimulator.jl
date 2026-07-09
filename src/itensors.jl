@@ -4,11 +4,11 @@
 import Base: truncate
 import ITensorBase: scalartype, uniqueinds
 import MatrixAlgebraKit as MAK
-import TensorAlgebra: matricize
+import TensorAlgebra: datatype, matricize
 using Adapt: Adapt
 using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commoninds,
     dimnames, hascommoninds, id, inds, name, nameddims, noncommoninds, noprime, plev, prime,
-    replacedimnames, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
+    replaceinds, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
 using LinearAlgebra: LinearAlgebra
 using TensorAlgebra: TensorAlgebra, project, scalar, tryproject
 
@@ -31,28 +31,12 @@ function onehot(eltype::Type, (i, p)::Pair{<:Index})
 end
 onehot(p::Pair{<:Index}) = onehot(Float64, p)
 
-function inner end
-
-function contract end
-function contract(tensors::AbstractVector; sequence = nothing)
+function contract_network end
+function contract_network(tensors::AbstractVector; sequence = nothing)
     return isnothing(sequence) ? reduce(*, tensors) : _contract_sequence(tensors, sequence)
 end
 _contract_sequence(tensors, s::Integer) = tensors[s]
 _contract_sequence(tensors, s) = reduce(*, (_contract_sequence(tensors, x) for x in s))
-
-replaceind(t, p::Pair) = replaceinds(t, p)
-replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
-
-const _IndexColl = Union{Tuple{Vararg{Index}}, AbstractVector{<:Index}}
-function replaceinds(t, pairs::Pair...)
-    return replacedimnames(t, map(p -> name(first(p)) => name(last(p)), pairs)...)
-end
-function replaceinds(t, from::_IndexColl, to::_IndexColl)
-    return replaceinds(t, map(=>, from, to)...)
-end
-function replaceinds(t::AbstractITensor, p::Pair{<:_IndexColl, <:_IndexColl})
-    return replaceinds(t, first(p), last(p))
-end
 
 diaglength(a::AbstractArray) = minimum(size(a))
 function diagstride(a::AbstractArray)
@@ -106,10 +90,6 @@ function itensor_trunc(; maxdim = nothing, cutoff = nothing)
     return trunc
 end
 
-datatype(T::AbstractITensor) = typeof(unnamed(T))
-array(T::AbstractITensor) = convert(Array, unnamed(T))
-data(T::AbstractITensor) = unnamed(T)
-
 struct ScalarTypeAdaptor{T} end
 ScalarTypeAdaptor(T::Type) = ScalarTypeAdaptor{T}()
 adapt_scalartype(T::Type) = Adapt.adapt(ScalarTypeAdaptor(T))
@@ -119,11 +99,8 @@ function Adapt.adapt_structure(::ScalarTypeAdaptor{elt}, T::AbstractITensor) whe
     return nameddims(convert(AbstractArray{elt}, unnamed(T)), ITensorBase.dimnames(T))
 end
 
-swapind(T::AbstractITensor, i::Index, j::Index) = replaceinds(T, i => j, j => i)
-
 hasqns(i::Index) = conj(unnamed(i)) != unnamed(i)
 hasqns(t::AbstractITensor) = any(hasqns, inds(t))
-hasqns(::Any) = false
 
 function directsum(out_inds, pairs::Pair...)
     t1, s1 = first(pairs[1]), last(pairs[1])
@@ -163,13 +140,6 @@ macro Algorithm_str(s)
     return :(Algorithm{$(Expr(:quote, Symbol(s)))})
 end
 
-function settags(i::Index, tagstr::AbstractString)
-    for t in split(tagstr, ",")
-        s = String(strip(t))
-        isempty(s) || (i = ITensorBase.settag(i, s, ""))
-    end
-    return i
-end
 settags(i::Index, p::Pair) = ITensorBase.settag(i, first(p), last(p))
 function settags(i::Index, d::AbstractDict)
     for (k, v) in d

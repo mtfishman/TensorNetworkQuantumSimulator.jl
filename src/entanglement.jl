@@ -32,7 +32,7 @@ function matricize(a::ITensor, row_inds = filter(i -> plev(i) ==0, inds(a)))
     col_inds = prime.(row_inds)
     row_name = ITensorBase.uniquename(ITensorBase.IndexName)
     col_name = ITensorBase.uniquename(ITensorBase.IndexName)
-    return array(matricize(a, Tuple(row_inds) => row_name, Tuple(col_inds) => col_name))
+    return Array(matricize(a, Tuple(row_inds) => row_name, Tuple(col_inds) => col_name))
 end
 
 """
@@ -87,8 +87,8 @@ function renyi_entropy(
     )
 
     edge_ind_p, edge_ind_pp = prime(edge_ind), prime(prime(edge_ind))
-    ρ = (m1 * replaceind(root_m2, edge_ind_p, edge_ind_pp)) * root_m2
-    ρ = replaceind(ρ, edge_ind_pp, edge_ind_p)
+    ρ = (m1 * replaceinds(root_m2, edge_ind_p => edge_ind_pp)) * root_m2
+    ρ = replaceinds(ρ, edge_ind_pp => edge_ind_p)
     return renyi_entropy(ρ; α)
 end
 
