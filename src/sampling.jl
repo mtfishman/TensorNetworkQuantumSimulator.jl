@@ -203,7 +203,7 @@ function get_one_sample(
                 # dangling non-physical legs the applied row carried into the message
                 # (e.g. charge legs of projected sites); the bra copy pairs them.
                 net_inds = virtualinds(network(norm_bmps_cache), e)
-                aux = uniqueinds(mt, cat_inds(net_inds, (inds(m) for m in outgoing_mps if m !== mt)...))
+                aux = setdiff(inds(mt), cat_inds(net_inds, (inds(m) for m in outgoing_mps if m !== mt)...))
                 setmessage!(norm_bmps_cache, e, ITensor[mt, bra_tensor(mt, aux)])
             end
 

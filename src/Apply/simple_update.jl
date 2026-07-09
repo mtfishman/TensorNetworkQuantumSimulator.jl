@@ -50,8 +50,8 @@ function simple_update(
         ψᵥ₂ = contract([ψ⃗[2]; sqrt_envs_v2])
         sᵥ₁ = commoninds(ψ⃗[1], o)
         sᵥ₂ = commoninds(ψ⃗[2], o)
-        Qᵥ₁, Rᵥ₁ = qr(ψᵥ₁, uniqueinds(uniqueinds(ψᵥ₁, ψᵥ₂), sᵥ₁))
-        Qᵥ₂, Rᵥ₂ = qr(ψᵥ₂, uniqueinds(uniqueinds(ψᵥ₂, ψᵥ₁), sᵥ₂))
+        Qᵥ₁, Rᵥ₁ = qr(ψᵥ₁, setdiff(uniqueinds(ψᵥ₁, ψᵥ₂), sᵥ₁))
+        Qᵥ₂, Rᵥ₂ = qr(ψᵥ₂, setdiff(uniqueinds(ψᵥ₂, ψᵥ₁), sᵥ₂))
         rᵥ₁ = commoninds(Qᵥ₁, Rᵥ₁)
         rᵥ₂ = commoninds(Qᵥ₂, Rᵥ₂)
         oR = apply(o, Rᵥ₁ * Rᵥ₂)
@@ -59,7 +59,7 @@ function simple_update(
         # side is isometric. The bond stays on `prime(u)` (keeping `u`'s name), so once this
         # function `noprime`s its result the bond becomes `u`, which the returned `s_values` (over
         # `(u, v)`) still shares for `apply_gate!`'s bond-message construction.
-        U, S, V = svd_trunc(oR, unioninds(rᵥ₁, sᵥ₁); trunc = itensor_trunc(; apply_kwargs...))
+        U, S, V = svd_trunc(oR, union(rᵥ₁, sᵥ₁); trunc = itensor_trunc(; apply_kwargs...))
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)

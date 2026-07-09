@@ -43,7 +43,7 @@ end
 function to_eincode(tensors::Vector{<:ITensor})
     ixs = map(t -> collect(name.(inds(t))), tensors)
     LT = eltype(eltype(ixs))
-    iy = collect(LT, name.(reduce(noncommoninds, tensors)))
+    iy = collect(LT, name.(reduce(symdiff, inds.(tensors))))
     size_dict = Dict{LT, Int}(name(i) => length(i) for t in tensors for i in inds(t))
     return EinCode(ixs, iy), size_dict
 end

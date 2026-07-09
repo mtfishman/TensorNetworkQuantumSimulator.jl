@@ -43,9 +43,9 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
             ms = messages(bpc)
             set!(ms, reverse(e), mer)
             t = network(bpc)[src(e)]
-            # Match by name: on a graded backend the network tensor carries the dual of
-            # the message's axis, so a full `Index` comparison never matches.
-            t_inds = commoninds(t, linds)
+            # On a graded backend the network tensor carries the dual of the message's axis.
+            # Index equality is dual-insensitive, so `intersect` matches the two.
+            t_inds = intersect(inds(t), linds)
             if !isempty(t_inds)
                 t_ind = only(t_inds)
                 t_ind_pos = findfirst(x -> name(x) == name(t_ind), linds)
@@ -61,11 +61,11 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
                 # lines up on every backend: the two messages carry mutually dual copies
                 # of the bond axes. The domain of the fused identity comes out dualized
                 # relative to the passed indices, so the columns go in `conj`ed.
-                row_inds = Index[only(commoninds(me, [l])) for l in linds]
-                col_inds = Index[only(commoninds(mer, [l])) for l in linds_sim]
+                row_inds = Index[only(intersect(inds(me), [l])) for l in linds]
+                col_inds = Index[only(intersect(inds(mer), [l])) for l in linds_sim]
                 if network(bpc) isa TensorNetworkState
-                    append!(row_inds, Index[only(commoninds(me, [prime(l)])) for l in linds])
-                    append!(col_inds, Index[only(commoninds(mer, [prime(l)])) for l in linds_sim])
+                    append!(row_inds, Index[only(intersect(inds(me), [prime(l)])) for l in linds])
+                    append!(col_inds, Index[only(intersect(inds(mer), [prime(l)])) for l in linds_sim])
                 end
                 ap = adapt_like(me, identity_tensor(row_inds, conj.(col_inds)))
                 ap = ap - me * mer

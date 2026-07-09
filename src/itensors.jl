@@ -2,12 +2,13 @@
 # next-gen `ITensorBase` / `TensorAlgebra` / `MatrixAlgebraKit` stack.
 
 import Base: truncate
-import ITensorBase: scalartype
+import ITensorBase: scalartype, uniqueinds
 import MatrixAlgebraKit as MAK
 import TensorAlgebra: matricize
 using Adapt: Adapt
-using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, dimnames,
-    id, inds, name, nameddims, noprime, plev, prime, replacedimnames, sim, tags, unnamed
+using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commoninds,
+    dimnames, hascommoninds, id, inds, name, nameddims, noncommoninds, noprime, plev, prime,
+    replacedimnames, sim, tags, unioninds, unnamed
 using LinearAlgebra: LinearAlgebra
 using TensorAlgebra: TensorAlgebra, project, scalar, tryproject
 
@@ -39,34 +40,11 @@ end
 _contract_sequence(tensors, s::Integer) = tensors[s]
 _contract_sequence(tensors, s) = reduce(*, (_contract_sequence(tensors, x) for x in s))
 
-_compat_inds(t::AbstractITensor) = inds(t)
-_compat_inds(is) = is
-
-smallintersect(a, b; by = identity) = (kb = Iterators.map(by, b); [x for x in a if by(x) ∈ kb])
-smallsetdiff(a, b; by = identity) = (kb = Iterators.map(by, b); [x for x in a if by(x) ∉ kb])
-smallunion(a, b; by = identity) = vcat(collect(a), smallsetdiff(b, a; by))
-smallsymdiff(a, b; by = identity) = vcat(smallsetdiff(a, b; by), smallsetdiff(b, a; by))
-smallisdisjoint(a, b; by = identity) = (kb = Iterators.map(by, b); !any(x -> by(x) ∈ kb, a))
-smallissubset(a, b; by = identity) = (kb = Iterators.map(by, b); all(x -> by(x) ∈ kb, a))
-smallissetequal(a, b; by = identity) = smallissubset(a, b; by) && smallissubset(b, a; by)
-
-nameisequal(i, j) = name(i) == name(j)
-nameintersect(a, b) = smallintersect(a, b; by = name)
-namesetdiff(a, b) = smallsetdiff(a, b; by = name)
-nameunion(a, b) = smallunion(a, b; by = name)
-namesymdiff(a, b) = smallsymdiff(a, b; by = name)
-nameisdisjoint(a, b) = smallisdisjoint(a, b; by = name)
-nameissubset(a, b) = smallissubset(a, b; by = name)
-nameissetequal(a, b) = smallissetequal(a, b; by = name)
-
-commoninds(a, b) = nameintersect(_compat_inds(a), _compat_inds(b))
-uniqueinds(a, b) = namesetdiff(_compat_inds(a), _compat_inds(b))
-unioninds(a, b) = nameunion(_compat_inds(a), _compat_inds(b))
-hascommoninds(a, b) = !nameisdisjoint(_compat_inds(a), _compat_inds(b))
-
+# The single shared/unique index, or `nothing` when there is not exactly one. `commoninds`
+# and `uniqueinds` come from ITensorBase, which keys index-set algebra by name so a graded
+# bond still matches its dual.
 commonind(a, b) = (cs = commoninds(a, b); isempty(cs) ? nothing : first(cs))
 noncommonind(a, b) = (us = uniqueinds(a, b); isempty(us) ? nothing : first(us))
-noncommoninds(a, b) = namesymdiff(_compat_inds(a), _compat_inds(b))
 
 replaceind(t, p::Pair) = replaceinds(t, p)
 replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
@@ -142,7 +120,7 @@ const svd_trunc = MAK.svd_trunc
 
 function qr(a::AbstractITensor, linds...)
     left = cat_inds(linds...)
-    right = namesetdiff(inds(a), left)
+    right = setdiff(inds(a), left)
     return MAK.qr_compact(a, Tuple(left), Tuple(right))
 end
 

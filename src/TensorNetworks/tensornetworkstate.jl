@@ -64,7 +64,7 @@ end
 bra_tensor(tns::TensorNetworkState, v) = bra_tensor(tns[v], auxinds(tns, v))
 
 # The dangling non-physical legs of a vertex tensor: dangling legs that are not site indices.
-auxinds(tns::TensorNetworkState, v) = Index[i for i in namesetdiff(uniqueinds(tns, v), siteinds(tns, v))]
+auxinds(tns::TensorNetworkState, v) = Index[i for i in setdiff(uniqueinds(tns, v), siteinds(tns, v))]
 
 # `auxinds_f` overrides the live aux-leg classification. The loop-correction weights
 # need this: they deliberately relabel a bond so it dangles in the modified network,
@@ -219,5 +219,5 @@ function tensornetworkstate(f::Function, args...)
 end
 
 function NamedGraphs.vertices(t::ITensor, tns::TensorNetworkState)
-    return filter(v -> !nameisdisjoint(inds(t), siteinds(tns, v)), collect(vertices(tns)))
+    return filter(v -> !isdisjoint(inds(t), siteinds(tns, v)), collect(vertices(tns)))
 end
