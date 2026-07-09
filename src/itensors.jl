@@ -126,17 +126,15 @@ hasqns(t::AbstractITensor) = any(hasqns, inds(t))
 hasqns(::Any) = false
 
 function directsum(out_inds, pairs::Pair...)
-    out_inds = Tuple(out_inds)
-    t1, s1 = first(pairs[1]), Tuple(last(pairs[1]))
-    shared = Tuple(filter(i -> !(i in s1), collect(inds(t1))))
+    t1, s1 = first(pairs[1]), last(pairs[1])
+    shared = setdiff(inds(t1), s1)
     target = (shared..., out_inds...)
     out = zeros(scalartype(t1), length.(target))
     offsets = zeros(Int, length(out_inds))
     for p in pairs
-        t, sinds = first(p), Tuple(last(p))
+        t, sinds = first(p), last(p)
         order = (shared..., sinds...)
-        cur = collect(ITensorBase.dimnames(t))
-        perm = [findfirst(==(name(o)), cur) for o in order]
+        perm = [findfirst(==(o), inds(t)) for o in order]
         a = permutedims(unnamed(t), perm)
         ranges = (
             Base.OneTo.(length.(shared))...,
