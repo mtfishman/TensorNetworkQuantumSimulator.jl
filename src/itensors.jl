@@ -141,8 +141,8 @@ macro Algorithm_str(s)
 end
 
 settags(i::Index, p::Pair) = ITensorBase.settag(i, first(p), last(p))
-function settags(i::Index, d::AbstractDict)
-    for (k, v) in d
+function settags(i::Index, tags)
+    for (k, v) in tags
         i = ITensorBase.settag(i, k, v)
     end
     return i
