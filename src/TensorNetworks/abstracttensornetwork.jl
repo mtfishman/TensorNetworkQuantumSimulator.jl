@@ -30,10 +30,10 @@ end
 # `setdiff` is by-name (dual-insensitive), so a shared graded link, stored nondual on one
 # endpoint and dual on the other, is still excluded here.
 function uniqueinds(tn::AbstractTensorNetwork, v)
-    tv_inds = collect(inds(tn[v]))
+    tv_inds = inds(tn[v])
     vns = neighbors(tn, v)
     isempty(vns) && return tv_inds
-    neighbor_inds = reduce(vcat, [collect(inds(tn[vn])) for vn in vns])
+    neighbor_inds = reduce(vcat, [inds(tn[vn]) for vn in vns])
     return setdiff(tv_inds, neighbor_inds)
 end
 

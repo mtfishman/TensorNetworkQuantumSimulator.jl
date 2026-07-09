@@ -14,7 +14,7 @@ is_trivial_tensor(t::ITensor) = all(i -> length(i) == 1, inds(t))
 # stored nondual on one and dual on the other under a graded backend.
 function contraction_network(tensors::Vector{<:ITensor}; prune_tensors = false)
     return map(tensors) do t
-        is = collect(inds(t))
+        is = inds(t)
         (prune_tensors && is_trivial_tensor(t)) ? empty(is) : is
     end
 end
@@ -40,7 +40,7 @@ end
 
 #OMEinsumContractionOrders helpers
 function to_eincode(tensors::Vector{<:ITensor})
-    ixs = map(t -> collect(inds(t)), tensors)
+    ixs = map(inds, tensors)
     LT = eltype(eltype(ixs))
     iy = collect(LT, reduce(symdiff, inds.(tensors)))
     size_dict = Dict{LT, Int}(i => length(i) for t in tensors for i in inds(t))
