@@ -195,7 +195,7 @@ function set_interpartition_messages!(
             # The stitching leg is minted trivial (all weight in the charge-0 sector)
             # so it follows the messages' backend; the all-ones filling matches the
             # legacy dense `delta(ind)`.
-            ind = settags(Index(trivialrange(unnamed(first(inds(m1))), virt_dim)), "m$(i)$(i + 1)")
+            ind = settags(trivialrange(first(inds(m1)), virt_dim), "m$(i)$(i + 1)")
             t = fill!(similar(m1, (ind,)), true)
             # The two copies of the stitching leg contract against each other along the
             # message MPS, so one side takes the conjugate.
