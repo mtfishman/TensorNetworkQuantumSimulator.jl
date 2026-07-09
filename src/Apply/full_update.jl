@@ -18,10 +18,10 @@ function full_update(
         apply_kwargs...,
     )
 
-    Qᵥ₁, Rᵥ₁ = factorize(
+    Qᵥ₁, Rᵥ₁ = MAK.left_orth(
         ψ[v⃗[1]], setdiff(uniqueinds(ψ[v⃗[1]], ψ[v⃗[2]]), uniqueinds(ψ, v⃗[1]))
     )
-    Qᵥ₂, Rᵥ₂ = factorize(
+    Qᵥ₂, Rᵥ₂ = MAK.left_orth(
         ψ[v⃗[2]], setdiff(uniqueinds(ψ[v⃗[2]], ψ[v⃗[1]]), uniqueinds(ψ, v⃗[2]))
     )
 
@@ -115,9 +115,12 @@ function optimise_p_q(
         apply_kwargs...,
     )
     pq = apply(o, p * q)
-    p_cur, q_cur = factorize(
-        pq, intersect(inds(pq), inds(p)); tags = tags(trycommonind(p, q)), apply_kwargs...
+    p_cur, q_cur = MAK.left_orth(
+        pq, intersect(inds(pq), inds(p)); trunc = itensor_trunc(; apply_kwargs...)
     )
+    b = only(commoninds(p_cur, q_cur))
+    bnew = settags(b, tags(trycommonind(p, q)))
+    p_cur, q_cur = replaceind(p_cur, b, bnew), replaceind(q_cur, b, bnew)
 
     fstart = print_fidelity_loss ? fidelity(envs, p_cur, q_cur, p, q, o) : 0
 

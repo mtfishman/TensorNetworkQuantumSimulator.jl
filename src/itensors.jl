@@ -91,7 +91,7 @@ delta(is::Index...) = delta(Float64, is)
 delta(is::AbstractVector{<:Index}) = delta(Float64, Tuple(is))
 
 # The codomain/domain bipartition of an operator tensor: each plev-0 index paired with its
-# prime. Viewing the operator as this square map is what `tr` and `eigen` factor through.
+# prime. Viewing the operator as this square map is what `tr` factors through.
 function operator_inds(a::AbstractITensor)
     domain = filter(i -> plev(i) == 0, inds(a))
     return prime.(domain), domain
@@ -99,56 +99,11 @@ end
 
 apply(o::AbstractITensor, ψ::AbstractITensor) = noprime(o * ψ)
 
-function eigen(m::AbstractITensor, codomain, domain; ishermitian = false, cutoff = nothing)
-    ishermitian ||
-        error("the compat `eigen` only supports the hermitian case (ishermitian = true)")
-    isnothing(cutoff) || error(
-        "the compat `eigen` does not yet translate the `cutoff` truncation kwarg to MatrixAlgebraKit's `trunc` spec"
-    )
-    D, U = MAK.eigh_full(m, codomain, domain)
-    u = only(commoninds(D, U))
-    t = only(uniqueinds(D, U))
-    D = replaceinds(D, t => ITensorBase.prime(u))
-    return D, U
-end
-
-function eigen(m::AbstractITensor; kwargs...)
-    codomain, domain = operator_inds(m)
-    D, U = eigen(m, codomain, domain; kwargs...)
-    return D, conj(U)
-end
-
 function itensor_trunc(; maxdim = nothing, cutoff = nothing)
     trunc = MAK.notrunc()
     isnothing(maxdim) || (trunc &= MAK.truncrank(maxdim))
     isnothing(cutoff) || iszero(cutoff) || (trunc &= MAK.truncerror(; rtol = sqrt(cutoff), p = 2))
     return trunc
-end
-
-function factorize(
-        a::AbstractITensor,
-        codomain;
-        ortho = "left",
-        cutoff = nothing,
-        maxdim = nothing,
-        tags = nothing
-    )
-    # `left_orth` / `right_orth` take the codomain indices and infer the domain, and `trunc`
-    # covers both the exact (no cutoff/maxdim) and truncating cases.
-    trunc = itensor_trunc(; cutoff, maxdim)
-    if ortho == "left"
-        L, R = MAK.left_orth(a, codomain; trunc)
-    elseif ortho == "right"
-        L, R = MAK.right_orth(a, codomain; trunc)
-    else
-        error("compat `factorize` supports ortho = \"left\" / \"right\" (got $(repr(ortho)))")
-    end
-    if !isnothing(tags)
-        b = only(commoninds(L, R))
-        bnew = settags(b, tags)
-        L, R = replaceind(L, b, bnew), replaceind(R, b, bnew)
-    end
-    return L, R
 end
 
 datatype(T::AbstractITensor) = typeof(unnamed(T))

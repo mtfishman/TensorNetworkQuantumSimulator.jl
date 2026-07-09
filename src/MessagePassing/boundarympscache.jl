@@ -282,7 +282,7 @@ function gauge_step!(
     m1, m2 = message(bmps_cache, e1), message(bmps_cache, e2)
     @assert !isempty(commoninds(m1, m2))
     left_inds = uniqueinds(m1, m2)
-    m1, Y = factorize(m1, left_inds; ortho = "left", kwargs...)
+    m1, Y = MAK.left_orth(m1, left_inds; trunc = itensor_trunc(; kwargs...))
     m2 = m2 * Y
     setmessage!(bmps_cache, e1, m1)
     setmessage!(bmps_cache, e2, m2)
@@ -430,7 +430,10 @@ function generic_apply(
         end
 
         keep = left_link === nothing ? Index[site...] : Index[site..., left_link]
-        L, R = factorize(T, keep; ortho = "left", cutoff, maxdim, tags = "link" => "$i")
+        L, R = MAK.left_orth(T, keep; trunc = itensor_trunc(; cutoff, maxdim))
+        b = only(commoninds(L, R))
+        bnew = settags(b, "link" => "$i")
+        L, R = replaceind(L, b, bnew), replaceind(R, b, bnew)
         push!(out, L)
         carry = R
         left_link = only(commoninds(L, R))
@@ -441,7 +444,10 @@ function generic_apply(
     # Back sweep: right-to-left SVD recompression (optimal truncation of the forward result).
     for i in length(out):-1:2
         bond = only(commoninds(out[i - 1], out[i]))
-        L, R = factorize(out[i], [bond]; ortho = "right", cutoff, maxdim, tags = "link" => "$(i - 1)")
+        L, R = MAK.right_orth(out[i], [bond]; trunc = itensor_trunc(; cutoff, maxdim))
+        b = only(commoninds(L, R))
+        bnew = settags(b, "link" => "$(i - 1)")
+        L, R = replaceind(L, b, bnew), replaceind(R, b, bnew)
         out[i] = R
         out[i - 1] *= L
     end
