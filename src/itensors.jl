@@ -181,8 +181,3 @@ function settags(i::Index, d::AbstractDict)
     end
     return i
 end
-function hastags(i::Index, tagstr::AbstractString)
-    return all(
-        haskey(tags(i), String(strip(t))) for t in split(tagstr, ",") if !isempty(strip(t))
-    )
-end
