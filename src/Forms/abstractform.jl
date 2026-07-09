@@ -24,7 +24,7 @@ end
 function default_message(form::AbstractForm, edge::AbstractEdge)
     cod = virtualinds(ket(form), edge)
     dom = conj.(bra_virtualinds(form, edge))
-    return one(similar_map(ket(form)[src(edge)], cod, dom), cod, dom)
+    return one(similar(ket(form)[src(edge)], cod, dom), cod, dom)
 end
 
 function bp_factors(form::AbstractForm, verts::Vector)

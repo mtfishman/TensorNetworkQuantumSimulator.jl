@@ -66,7 +66,7 @@ function fidelity(
         q_prev::ITensor,
         gate::ITensor,
     )
-    p_sind, q_sind = commonind(p_cur, gate), commonind(q_cur, gate)
+    p_sind, q_sind = trycommonind(p_cur, gate), trycommonind(q_cur, gate)
     p_sind_sim, q_sind_sim = sim(p_sind), sim(q_sind)
     gate_sq =
         gate * replaceinds(conj(gate), Index[p_sind, q_sind], Index[p_sind_sim, q_sind_sim])
@@ -116,7 +116,7 @@ function optimise_p_q(
     )
     pq = apply(o, p * q)
     p_cur, q_cur = factorize(
-        pq, intersect(inds(pq), inds(p)); tags = tags(commonind(p, q)), apply_kwargs...
+        pq, intersect(inds(pq), inds(p)); tags = tags(trycommonind(p, q)), apply_kwargs...
     )
 
     fstart = print_fidelity_loss ? fidelity(envs, p_cur, q_cur, p, q, o) : 0

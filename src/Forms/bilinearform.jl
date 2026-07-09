@@ -20,7 +20,7 @@ function BilinearForm(ket::TensorNetworkState, bra::TensorNetworkState)
     bra = TensorNetworkState(Dictionary(verts, [bra_tensor(bra, v) for v in verts]))
     operator_tensors = [
         let codomain = conj.(sinds[v]), domain = conj.(prime.(sinds[v]))
-            one(similar_map(ket[v], codomain, domain), codomain, domain)
+            one(similar(ket[v], codomain, domain), codomain, domain)
         end for v in verts
     ]
     operator = TensorNetworkState(Dictionary(verts, operator_tensors))

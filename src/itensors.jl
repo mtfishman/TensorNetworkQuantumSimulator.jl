@@ -8,7 +8,7 @@ import TensorAlgebra: matricize
 using Adapt: Adapt
 using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commoninds,
     dimnames, hascommoninds, id, inds, name, nameddims, noncommoninds, noprime, plev, prime,
-    replacedimnames, sim, tags, unioninds, unnamed
+    replacedimnames, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
 using LinearAlgebra: LinearAlgebra
 using TensorAlgebra: TensorAlgebra, project, scalar, tryproject
 
@@ -39,12 +39,6 @@ function contract(tensors::AbstractVector; sequence = nothing)
 end
 _contract_sequence(tensors, s::Integer) = tensors[s]
 _contract_sequence(tensors, s) = reduce(*, (_contract_sequence(tensors, x) for x in s))
-
-# The single shared/unique index, or `nothing` when there is not exactly one. `commoninds`
-# and `uniqueinds` come from ITensorBase, which keys index-set algebra by name so a graded
-# bond still matches its dual.
-commonind(a, b) = (cs = commoninds(a, b); isempty(cs) ? nothing : first(cs))
-noncommonind(a, b) = (us = uniqueinds(a, b); isempty(us) ? nothing : first(us))
 
 replaceind(t, p::Pair) = replaceinds(t, p)
 replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
@@ -87,16 +81,6 @@ function diagonaltensor(
         is::Tuple{NamedUnitRange, Vararg{NamedUnitRange}}
     )
     return nameddims(diagonaltensor(diag, unnamed.(is)), name.(is))
-end
-
-function similar_map(prototype::AbstractITensor, eltype::Type, codomain, domain)
-    raw = TensorAlgebra.similar_map(
-        unnamed(prototype), eltype, unnamed.(codomain), unnamed.(domain)
-    )
-    return nameddims(raw, (name.(codomain)..., name.(domain)...))
-end
-function similar_map(prototype::AbstractITensor, codomain, domain)
-    return similar_map(prototype, scalartype(prototype), codomain, domain)
 end
 
 delta(eltype::Type, is::Tuple) = diagonaltensor(ones(eltype, minimum(length, is)), is)
@@ -235,6 +219,7 @@ function settags(i::Index, tagstr::AbstractString)
     end
     return i
 end
+settags(i::Index, p::Pair) = ITensorBase.settag(i, first(p), last(p))
 function settags(i::Index, d::AbstractDict)
     for (k, v) in d
         i = ITensorBase.settag(i, k, v)
