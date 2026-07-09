@@ -4,7 +4,6 @@ using Random
 using TensorNetworkQuantumSimulator
 const TNQS = TensorNetworkQuantumSimulator
 # `random_itensor`/`contract`/`scalar` come from TNQS's compat layer (see test_constructors).
-import TensorNetworkQuantumSimulator as ITensors
 using TensorNetworkQuantumSimulator: scalar
 using OMEinsumContractionOrders: NestedEinsum, EinCode, getixsv, getiyv
 using Test: @testset, @test
@@ -21,8 +20,8 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
     #     Labels are index names: a shared leg's `Index` differs between its two tensors
     #     under a graded backend (nondual vs dual), so names are the backend-stable label.
     i, j, k = Index(2), Index(3), Index(4)
-    A = ITensors.random_itensor(i, j)
-    B = ITensors.random_itensor(j, k)
+    A = TNQS.random_itensor(i, j)
+    B = TNQS.random_itensor(j, k)
     code, size_dict = TNQS.to_eincode([A, B])
     @test Set(Set.(getixsv(code))) == Set([Set(name.([i, j])), Set(name.([j, k]))])  # per-tensor index sets
     @test Set(getiyv(code)) == Set(name.([i, k]))                    # open indices (j is contracted)
@@ -50,21 +49,21 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
 
     # --- the sequence the backend returns is a *correct* contraction: executing it gives the
     #     same scalar as the independent `optimal` backend.
-    ref = scalar(ITensors.contract(tensors; sequence = TNQS.contraction_sequence(tensors; alg = "optimal")))
+    ref = scalar(TNQS.contract(tensors; sequence = TNQS.contraction_sequence(tensors; alg = "optimal")))
     for optimizer in (GreedyMethod(), TreeSA())
         seq = TNQS.contraction_sequence(tensors; alg = "omeinsum", optimizer)
-        @test scalar(ITensors.contract(tensors; sequence = seq)) ≈ ref
+        @test scalar(TNQS.contract(tensors; sequence = seq)) ≈ ref
     end
 
     # --- open network: result is a tensor with dangling indices (iy non-empty).
     p, q, r, s, t = Index(2), Index(3), Index(2), Index(3), Index(2)
-    X = ITensors.random_itensor(p, q)
-    Y = ITensors.random_itensor(q, r, s)
-    Z = ITensors.random_itensor(s, t)
+    X = TNQS.random_itensor(p, q)
+    Y = TNQS.random_itensor(q, r, s)
+    Z = TNQS.random_itensor(s, t)
     open_tensors = [X, Y, Z]   # open indices: p, r, t
     seq_open = TNQS.contraction_sequence(open_tensors; alg = "omeinsum", optimizer = GreedyMethod())
     @test sort(collect_leaves!(Int[], seq_open)) == [1, 2, 3]
-    @test ITensors.contract(open_tensors; sequence = seq_open) ≈
-        ITensors.contract(open_tensors; sequence = TNQS.contraction_sequence(open_tensors; alg = "optimal"))
+    @test TNQS.contract(open_tensors; sequence = seq_open) ≈
+        TNQS.contract(open_tensors; sequence = TNQS.contraction_sequence(open_tensors; alg = "optimal"))
 end
 end

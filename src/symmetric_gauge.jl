@@ -7,7 +7,7 @@ function symmetric_gauge!(bp_cache::BeliefPropagationCache; regularization = 10 
 
         edge_ind = commoninds(ψvsrc, ψvdst)
         edge_ind_p = prime.(edge_ind)
-        edge_ind_sim = sim(edge_ind)
+        edge_ind_sim = sim.(edge_ind)
 
         # Hermitian square roots (and pseudo-inverse roots) of the two messages, as
         # operators with codomain on the unprimed and domain on the primed copies of the
@@ -48,7 +48,7 @@ function symmetric_gauge!(bp_cache::BeliefPropagationCache; regularization = 10 
         ψvsrc = ψvsrc * sqrtS
         ψvdst = ψvdst * sqrtS
 
-        new_edge_ind = Index[ITensors.settags(only(v), tags(first(edge_ind)))]
+        new_edge_ind = Index[settags(only(v), tags(first(edge_ind)))]
         ψvsrc = replaceinds(ψvsrc, v, new_edge_ind)
         ψvdst = replaceinds(ψvdst, u, new_edge_ind)
         setindex_preserve!(bp_cache, ψvsrc, vsrc)

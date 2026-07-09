@@ -1,4 +1,3 @@
-using .ITensorsITensorBaseCompat: nameisdisjoint, namesetdiff, random_itensor
 
 """
     TensorNetworkState{V} <: AbstractTensorNetwork{V}
@@ -82,7 +81,7 @@ function norm_factors(tns::TensorNetworkState, verts::Vector; op_strings::Functi
             tnv_dag = replaceinds(tnv_dag, prime.(sinds), sinds)
             append!(factors, ITensor[tnv, tnv_dag])
         else
-            op = adapt_like(tnv, ITensors.op(op_strings(v), only(sinds)))
+            op = adapt_like(tnv, Ops.op(op_strings(v), only(sinds)))
             append!(factors, ITensor[tnv, tnv_dag, op])
         end
     end
@@ -97,7 +96,7 @@ bp_factors(tns::TensorNetworkState, v) = norm_factors(tns, v)
 # links give a graded message; the legacy `delta` filled a dense diagonal).
 function default_message(tns::TensorNetworkState, edge::AbstractEdge)
     linds = virtualinds(tns, edge)
-    cod, dom = Tuple(linds), Tuple(prime(dag(linds)))
+    cod, dom = Tuple(linds), Tuple(prime.(dag(linds)))
     return adapt_like(tns, one(zeros(scalartype(tns), cod..., dom...), cod, dom))
 end
 
@@ -171,9 +170,9 @@ function tensornetworkstate(eltype, f::Function, g::AbstractGraph, siteinds::Dic
     for v in vs
         tnv = f(v)
         if tnv isa String
-            set!(tensors, v, ITensors.adapt_scalartype(eltype)(ITensors.state(f(v), only(siteinds[v]))))
+            set!(tensors, v, adapt_scalartype(eltype)(Ops.state(f(v), only(siteinds[v]))))
         elseif tnv isa Vector{<:Number}
-            set!(tensors, v, ITensors.adapt_scalartype(eltype)(ITensors.state(f(v), only(siteinds[v]))))
+            set!(tensors, v, adapt_scalartype(eltype)(Ops.state(f(v), only(siteinds[v]))))
         else
             error("Unrecognized local state constructor. Currently supported: Strings and Vectors.")
         end

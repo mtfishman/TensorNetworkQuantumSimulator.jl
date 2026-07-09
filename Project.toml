@@ -25,11 +25,19 @@ TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 TypeParameterAccessors = "7e5a90cf-f82e-492e-a09b-e3e26432c138"
 
+[sources.ITensorBase]
+url = "https://github.com/ITensor/ITensorBase.jl"
+rev = "mf/nextgen-followups-round1"
+
+[sources.TensorAlgebra]
+url = "https://github.com/ITensor/TensorAlgebra.jl"
+rev = "mf/nextgen-followups-round1"
+
 [compat]
 Adapt = "4.3.0"
 Dictionaries = "0.4"
 Graphs = "1.8.0"
-ITensorBase = "0.10.9"
+ITensorBase = "0.11"
 KrylovKit = "0.10.2"
 LinearAlgebra = "1.11.0"
 MatrixAlgebraKit = "0.6.8"

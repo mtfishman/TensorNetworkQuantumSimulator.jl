@@ -32,7 +32,7 @@ function matricize(a::ITensor, row_inds = filter(i -> plev(i) ==0, inds(a)))
     col_inds = prime.(row_inds)
     row_name = ITensorBase.uniquename(ITensorBase.IndexName)
     col_name = ITensorBase.uniquename(ITensorBase.IndexName)
-    return ITensors.array(ITensors.matricize(a, Tuple(row_inds) => row_name, Tuple(col_inds) => col_name))
+    return array(matricize(a, Tuple(row_inds) => row_name, Tuple(col_inds) => col_name))
 end
 
 """

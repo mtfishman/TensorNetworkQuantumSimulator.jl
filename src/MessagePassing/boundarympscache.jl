@@ -39,7 +39,7 @@ end
 default_message_update_alg(bmps_cache::BoundaryMPSCache) = default_bmps_message_update_alg(network(bmps_cache))
 
 default_normalize(alg::Algorithm"fitting") = true
-default_tolerance(bmps_cache::BoundaryMPSCache) = default_tolerance(ITensors.scalartype(bmps_cache))
+default_tolerance(bmps_cache::BoundaryMPSCache) = default_tolerance(scalartype(bmps_cache))
 _default_boundarymps_update_niters = 50
 function set_default_kwargs(alg::Algorithm"fitting", bmps_cache::BoundaryMPSCache)
     normalize = get(alg.kwargs, :normalize, default_normalize(alg))
@@ -195,7 +195,7 @@ function set_interpartition_messages!(
             # The stitching leg is minted trivial (all weight in the charge-0 sector)
             # so it follows the messages' backend; the all-ones filling matches the
             # legacy dense `delta(ind)`.
-            ind = ITensors.settags(Index(trivialrange(unnamed(first(inds(m1))), virt_dim)), "m$(i)$(i + 1)")
+            ind = settags(Index(trivialrange(unnamed(first(inds(m1))), virt_dim)), "m$(i)$(i + 1)")
             t = fill!(similar(m1, (ind,)), true)
             # The two copies of the stitching leg contract against each other along the
             # message MPS, so one side takes the conjugate.

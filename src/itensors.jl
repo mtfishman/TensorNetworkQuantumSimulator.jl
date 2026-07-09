@@ -1,27 +1,53 @@
-# Compatibility shims bridging the legacy `ITensors.jl` API that TNQS was written
-# against to the next-gen `ITensorBase.jl` backend.
-#
-# Strategy (see ITensorDevelopmentPlans api_migration_map.md):
-#   - Names below are thin wrappers over ITensorBase / TensorAlgebra / MatrixAlgebraKit.
-#   - The factorization return shapes, the operator/SiteType system, and
-#     the boundary-MPS (ITensorMPS) paths are NOT wrapped here; they need callsite
-#     translation or upstream stack work and are tracked separately. The legacy
-#     `combiner` is retired rather than wrapped: call sites use the next-gen fusion
-#     primitives (`matricize` below, the fused identity `Base.one`) directly.
-#
-# ITensorBase keeps most of this API internal (unexported), so we reach for the
-# qualified names and re-publish the legacy spellings into the TNQS namespace.
+# TNQS-owned tensor utilities and the legacy `ITensors.jl`-style API TNQS was written
+# against, implemented over the next-gen `ITensorBase` / `TensorAlgebra` / `MatrixAlgebraKit`
+# stack. ITensorBase keeps most of this API internal (unexported), so we reach for the
+# qualified names and define the legacy spellings here as functionality TNQS owns.
 
+import Base: truncate
+import ITensorBase: scalartype
 import MatrixAlgebraKit as MAK
+import TensorAlgebra: matricize
 using Adapt: Adapt
-using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, name,
-    nameddims, plev, tags, unnamed
+using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, dimnames,
+    id, name, nameddims, noprime, plev, prime, replacedimnames, sim, tags, unnamed
 using LinearAlgebra: LinearAlgebra
-using TensorAlgebra.MatrixAlgebra: MatrixAlgebra
-using TensorAlgebra: TensorAlgebra
+using TensorAlgebra: TensorAlgebra, project, tryproject
 
-# Legacy `inds(t; plev, tags)` took index-filtering keywords; `ITensorBase.inds` takes none. Compat
-# `inds` forwards to it and applies the legacy filters (a compat-owned function, not a pirated method).
+#
+# State-vector projection, shared by the `Ops` state constructors and by `onehot`.
+#
+# Project a raw vector as an `ITensor` over `i`, adding an auxiliary leg only when the
+# vector cannot live in the flux-zero space over `i` alone. The index axis selects the
+# backend (dense, graded, `TensorMap`).
+function project_aux(v::AbstractVector{<:Number}, i::Index)
+    length(v) == length(i) ||
+        error(
+        "state vector has dimension $(length(v)) but the site index has dimension $(length(i))"
+    )
+    ψ = tryproject(v, (i,))
+    isnothing(ψ) || return ψ
+    # The vector carries a charge under `i`'s grading (e.g. "Dn" on a U(1) site, or a
+    # one-hot on a graded link), so it can't live in the flux-zero space over `i` alone.
+    # Carry the charge on an explicit length-1 auxiliary leg: project with a trailing axis
+    # so the backend derives the leg's sector from the vector, then wrap the derived axis
+    # in a freshly named `Index`.
+    raw = project(reshape(v, (length(v), 1)), (unnamed(i),), ())
+    aux = Index(TensorAlgebra.axes(raw, 2))
+    return nameddims(raw, (ITensorBase.name(i), ITensorBase.name(aux)))
+end
+
+# One-hot vector along `i` at position `p` (legacy `onehot(i => p)`), through `project_aux`,
+# which follows the index's backend and carries the basis vector's charge on a derived
+# auxiliary leg.
+function onehot(eltype::Type, (i, p)::Pair{<:Index})
+    v = zeros(eltype, length(i))
+    v[p] = one(eltype)
+    return project_aux(v, i)
+end
+onehot(p::Pair{<:Index}) = onehot(Float64, p)
+
+# Legacy `inds(t; plev, tags)` took index-filtering keywords; `ITensorBase.inds` takes none.
+# This forwards to it and applies the legacy filters.
 function inds(t::AbstractITensor; plev = nothing, tags = nothing)
     is = ITensorBase.inds(t)
     isnothing(plev) || (is = filter(i -> ITensorBase.plev(i) == plev, is))
@@ -29,13 +55,12 @@ function inds(t::AbstractITensor; plev = nothing, tags = nothing)
     return is
 end
 
-# Module-owned functions TNQS extends for its own types: `scalartype` falls back to ITensorBase for
-# tensors/arrays; `contract`/`inner` are TNQS operations whose base methods live in the library.
-scalartype(x) = ITensorBase.scalartype(x)
+# `contract` / `inner` are TNQS operations whose base generics live here and are extended
+# for TNQS types (tensor networks, caches) in the respective files.
 function inner end
 
 # Base contraction of a list of ITensors along a (possibly nested) pairwise `sequence` (legacy
-# `ITensors.contract(tensors; sequence)`); leaves are integer indices into `tensors`. Typed
+# `contract(tensors; sequence)`); leaves are integer indices into `tensors`. Typed
 # `AbstractVector` (not `{<:AbstractITensor}`) because callers concatenate in ways that widen to
 # `Vector{Any}` (e.g. splicing in an empty environment list).
 function contract end
@@ -105,13 +130,6 @@ noncommoninds(a, b) = namesymdiff(_compat_inds(a), _compat_inds(b))
 dim(i::Index) = length(i)
 dim(is::Union{Tuple, AbstractVector}) = isempty(is) ? 1 : prod(length, is)
 
-#
-# Index operations.
-#
-# A fresh index with the same length, tags, and prime level (legacy `sim`).
-sim(i::Index) = ITensorBase.uniquename(i)
-sim(is::Union{Tuple, AbstractVector{<:Index}}) = map(sim, is)
-
 # Conjugate (legacy `dag`): `conj` the tensor, and on bare indices flip the sector arrows
 # on a graded axis. `conj(::Index)` is id-preserving on the dense backend, so `dag` there
 # is effectively the identity on indices, matching legacy behavior.
@@ -119,21 +137,7 @@ dag(t::AbstractITensor) = conj(t)
 dag(i::Index) = conj(i)
 dag(is::Union{Tuple, AbstractVector}) = map(conj, is)
 
-# `prime` / `noprime`: ITensorBase primes an `Index`; TNQS also primes whole ITensors
-# (all dimnames). Owned here with a fallback to ITensorBase for the index case.
-prime(x) = ITensorBase.prime(x)
-function prime(t::AbstractITensor)
-    return nameddims(unnamed(t), map(ITensorBase.prime, ITensorBase.dimnames(t)))
-end
-prime(is::Union{Tuple, AbstractVector{<:Index}}) = map(prime, is)
-noprime(x) = ITensorBase.noprime(x)
-function noprime(t::AbstractITensor)
-    return nameddims(unnamed(t), map(ITensorBase.noprime, ITensorBase.dimnames(t)))
-end
-noprime(is::Union{Tuple, AbstractVector{<:Index}}) = map(noprime, is)
-
-# `replaceind` (singular) maps to a single-pair replacement, forwarding to the
-# compat-owned `replaceinds` (below).
+# `replaceind` (singular) maps to a single-pair replacement, forwarding to `replaceinds`.
 replaceind(t, p::Pair) = replaceinds(t, p)
 replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
 
@@ -145,8 +149,9 @@ replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
 _as_index_vec(x::Index) = [x]
 _as_index_vec(xs) = collect(xs)
 cat_inds(xs...) = reduce(vcat, map(_as_index_vec, xs))
+
 # Legacy `replaceinds` took collection arguments (`replaceinds(t, [i,k], [j,l])`, `... => ...`);
-# ITensorBase provides only the pair-splat form, so this compat handles the collection forms.
+# ITensorBase provides only the pair-splat form, so this handles the collection forms.
 #
 # The base case relabels *names* via `replacedimnames`, not `ITensorBase.replaceinds` (which replaces
 # the index *space*, scalar-indexing a graded axis and erroring). Keys are stripped to `IndexName`
@@ -156,10 +161,7 @@ cat_inds(xs...) = reduce(vcat, map(_as_index_vec, xs))
 # constrained to `AbstractVector{<:Index}` to avoid capturing a bare `Index` and iterating its range.
 const _IndexColl = Union{Tuple{Vararg{Index}}, AbstractVector{<:Index}}
 function replaceinds(t, pairs::Pair...)
-    return ITensorBase.replacedimnames(
-        t,
-        map(p -> name(first(p)) => name(last(p)), pairs)...
-    )
+    return replacedimnames(t, map(p -> name(first(p)) => name(last(p)), pairs)...)
 end
 function replaceinds(t, from::_IndexColl, to::_IndexColl)
     return replaceinds(t, map(=>, from, to)...)
@@ -168,9 +170,6 @@ function replaceinds(t::AbstractITensor, p::Pair{<:_IndexColl, <:_IndexColl})
     return replaceinds(t, first(p), last(p))
 end
 
-#
-# ITensor construction.
-#
 # Legacy `itensor(array, inds)`: inherit the index spaces. NB: `ITensor(array, inds)`
 # with raw `Index` objects is intentionally NOT supported by ITensorBase (the space
 # is underdefined); use the indexing form, which inherits the indices' spaces, or
@@ -198,8 +197,8 @@ random_itensor(is::Union{Tuple, AbstractVector}) = random_itensor(Float64, is)
 scalar(t::AbstractITensor) = t[]
 
 # Dense Kronecker delta tensor (legacy `delta`), vendored from ITensorNetworksNext's
-# `ITensorNetworkGenerators/delta_network.jl` (TNQS doesn't depend on it for this migration). A
-# graded/sector-aware `delta` is a stack gap (tracked separately).
+# `ITensorNetworkGenerators/delta_network.jl`. A graded/sector-aware `delta` is a stack gap
+# (tracked separately).
 diaglength(a::AbstractArray) = minimum(size(a))
 function diagstride(a::AbstractArray)
     s = 1
@@ -243,15 +242,6 @@ function similar_map(prototype::AbstractITensor, codomain, domain)
     return similar_map(prototype, scalartype(prototype), codomain, domain)
 end
 
-# From-scratch identity map: a dense identity embedded onto the `codomain`/`domain` index
-# partition via checked `project`, so the index axes select the backend (dense, graded,
-# `TensorMap`). Unlike `one(a, codomain, domain)` it needs no prototype tensor, so it is the
-# right primitive when only the indices and an element type are in hand (e.g. `op("I")`).
-function id(eltype::Type, codomain, domain)
-    m = Matrix{eltype}(LinearAlgebra.I, prod(length, codomain), prod(length, domain))
-    return TensorAlgebra.project(m, Tuple(codomain), Tuple(domain))
-end
-
 # Dense Kronecker copy (`delta`) tensor over the index axes. Dense-only: a super-diagonal
 # generally cannot be embedded while preserving a nontrivial symmetry, so graded/`TensorMap`
 # callers that want an order-2 identity build it via `id`/`one` at the callsite instead.
@@ -262,32 +252,22 @@ delta(is::Tuple) = delta(Float64, is)
 delta(is::Index...) = delta(Float64, is)
 delta(is::AbstractVector{<:Index}) = delta(Float64, Tuple(is))
 
-# Trace over prime pairs (legacy `tr`): contract with the identity map pairing each unprimed index
-# with its prime. The domain is built as `dag.(prime.(codomain))`, not `inds(t; plev=1)` — `plev`
-# filtering does not preserve the pairing order between the plev-0 and plev-1 groups. Accessed
-# qualified (`ITensors.tr`) so it doesn't shadow `LinearAlgebra.tr`, which TNQS calls on matrices.
-function tr(t::AbstractITensor)
+# Trace over prime pairs (legacy ITensors `tr`): contract with the identity map pairing each
+# unprimed index with its prime. The domain is built as `dag.(prime.(codomain))`, not
+# `inds(t; plev=1)` — `plev` filtering does not preserve the pairing order between the plev-0 and
+# plev-1 groups. Named `itensor_tr` (not a `LinearAlgebra.tr` method, which would be piracy on
+# `AbstractITensor`) so it stays distinct from `tr` on plain matrices, which TNQS also calls.
+function itensor_tr(t::AbstractITensor)
     unprimed = inds(t; plev = 0)
     codomain, domain = dag.(unprimed), dag.(prime.(unprimed))
     return scalar(t * one(similar_map(t, codomain, domain), codomain, domain))
 end
 
-# One-hot vector along `i` at position `p` (legacy `onehot(i => p)`), through `project_aux`
-# (in `ops.jl`), which follows the index's backend and carries the basis vector's charge on
-# a derived auxiliary leg.
-function onehot(eltype::Type, (i, p)::Pair{<:Index})
-    v = zeros(eltype, length(i))
-    v[p] = one(eltype)
-    return project_aux(v, i)
-end
-onehot(p::Pair{<:Index}) = onehot(Float64, p)
-
 #
 # Factorizations. These map onto MatrixAlgebraKit's named-tensor methods
 # (`f(a, codomain, domain)`). The legacy return shapes differ from MAK's, so the
 # heavy factorization callsites (simple_update / full_update / symmetric_gauge) are
-# translated directly rather than fully wrapped here; these aliases cover the simple
-# uses. See api_migration_map.md.
+# translated directly rather than fully wrapped here; these aliases cover the simple uses.
 #
 const svd_trunc = MAK.svd_trunc
 
@@ -324,8 +304,7 @@ end
 # `eigh_full` returns `D` over two independent fresh indices; we rename its `U`-disjoint
 # index to `prime(u)` so `D` becomes the legacy prime-paired diagonal. The legacy
 # truncation kwargs (`cutoff`/`maxdim`/`mindim`) are not yet translated to MAK's
-# `trunc=(; ...)` spec — see api_migration_map.md; the current callsites pass
-# `cutoff = nothing` (full decomposition).
+# `trunc=(; ...)` spec; the current callsites pass `cutoff = nothing` (full decomposition).
 function _eigh(
         m::AbstractITensor,
         codomain,
@@ -439,24 +418,14 @@ function factorize(
     return L, R
 end
 
-
-
 #
-# Index fusion. The legacy `combiner` is retired (no compat shim); call sites fuse
-# index groups with the next-gen `matricize(t, row_inds => row_name, col_inds =>
-# col_name)` (minting each fused name via `uniquename(IndexName)`) or build a fused
-# identity with `Base.one`, both of which are graded-capable. `matricize` is the
-# `TensorAlgebra` generic, extended by ITensorBase for named tensors.
-using TensorAlgebra: matricize
-
+# Storage / element type accessors. `scalartype` is imported from ITensorBase (extended for
+# TNQS types elsewhere). `datatype` is the underlying storage array type (used by `adapt`);
+# `data` exposes the plain unnamed array. `array` densifies (legacy `array` materialized a
+# dense array from any storage): a no-op on a dense backend, while graded / `TensorMap` storage
+# converts through its canonical flat basis, so positions agree with `onehot` / `project` on the
+# same axes.
 #
-# Storage / element type accessors.
-#
-# `scalartype` is re-exported above. `datatype` is the underlying storage array type
-# (used by `adapt`); `data` exposes the plain unnamed array. `array` densifies (legacy
-# `array` materialized a dense array from any storage): a no-op on a dense backend,
-# while graded / `TensorMap` storage converts through its canonical flat basis, so
-# positions agree with `onehot` / `project` on the same axes.
 datatype(T::AbstractITensor) = typeof(unnamed(T))
 array(T::AbstractITensor) = convert(Array, unnamed(T))
 data(T::AbstractITensor) = unnamed(T)
@@ -479,10 +448,6 @@ end
 # `swapind`: swap two indices (legacy convenience over `replaceinds`).
 swapind(T::AbstractITensor, i::Index, j::Index) = replaceinds(T, i => j, j => i)
 
-# Dense no-ops. Legacy QN-storage helpers; on the dense next-gen backend the tensor
-# is already dense, so these are identities. (Graded/QN path is a stack gap.)
-denseblocks(T::AbstractITensor) = T
-dense(T::AbstractITensor) = T
 # Whether a tensor carries quantum-number (graded) block structure: true when any of its
 # indices is graded. `loopcorrection` branches on this to pick a contraction-order
 # algorithm. A graded axis differs from its conjugate (conjugation flips the sector
@@ -491,9 +456,6 @@ dense(T::AbstractITensor) = T
 hasqns(i::Index) = conj(unnamed(i)) != unnamed(i)
 hasqns(t::AbstractITensor) = any(hasqns, inds(t))
 hasqns(::Any) = false
-
-# The operator / named-state system (`op` / `state`) is vendored separately in
-# `ops.jl`, included right after this file by the module file.
 
 # Direct sum (legacy `directsum`): block-diagonal placement of tensors along the summed axes, shared
 # axes preserved. Vendored densely — the next-gen stack has no `directsum` yet (tracked upstream).
@@ -521,14 +483,12 @@ function directsum(out_inds, pairs::Pair...)
     return out[target...]
 end
 
-# No index-order warnings in the next-gen stack (legacy `disable_warn_order`).
-disable_warn_order(args...) = nothing
-
 #
 # Algorithm dispatch tag (legacy `Algorithm` / `@Algorithm_str`). `Algorithm"exact"`
 # is the type `Algorithm{:exact}` (usable in `::Algorithm"exact"` signatures);
 # `Algorithm("exact"; kwargs...)` constructs an instance carrying keyword options.
 # Faithful minimal copy of the ITensors/NDTensors helper.
+#
 struct Algorithm{Alg, Kwargs <: NamedTuple}
     kwargs::Kwargs
 end
@@ -554,6 +514,7 @@ end
 # stores tags as a `Dict{String, String}`. For the legacy flat-tag usage TNQS has
 # (site-type labels, link names), we store each token as a keyed tag with empty
 # value, and `hastags` checks membership. (A fuller tag-compat story is a follow-up.)
+#
 function settags(i::Index, tagstr::AbstractString)
     for t in split(tagstr, ",")
         s = String(strip(t))
@@ -574,13 +535,3 @@ function hastags(i::Index, tagstr::AbstractString)
         haskey(tags(i), String(strip(t))) for t in split(tagstr, ",") if !isempty(strip(t))
     )
 end
-
-# TODO (small inline residue — can't be a drop-in shim):
-#   - `contract` / `inner` / `truncate`: TNQS *extends* these (method definitions),
-#     so the call sites drop the `ITensors.` qualifier to extend the generics this
-#     module owns rather than ITensors'. (`truncate` clashes with `Base.truncate`.)
-#
-# TODO (stack gaps — own roadmap items, not solvable in this file):
-#   - op / @OpName_str / @SiteType_str  (operator/site system)
-#   - MPS / MPO / boundary-MPS          (no next-gen MPS layer yet)
-#   - hasqns / QN-aware storage         (next-gen symmetry via GradedArrays)
