@@ -129,13 +129,11 @@ function directsum(out_inds, pairs::Pair...)
     t1, s1 = first(pairs[1]), last(pairs[1])
     shared = setdiff(inds(t1), s1)
     target = (shared..., out_inds...)
-    out = zeros(scalartype(t1), length.(target))
+    out = zeros(eltype(t1), length.(target))
     offsets = zeros(Int, length(out_inds))
     for p in pairs
         t, sinds = first(p), last(p)
-        order = (shared..., sinds...)
-        perm = [findfirst(==(o), inds(t)) for o in order]
-        a = permutedims(unnamed(t), perm)
+        a = ITensorBase.unname(t, (shared..., sinds...))
         ranges = (
             Base.OneTo.(length.(shared))...,
             ntuple(k -> (offsets[k] + 1):(offsets[k] + length(sinds[k])), length(sinds))...,
