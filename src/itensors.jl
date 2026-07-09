@@ -49,10 +49,6 @@ noncommonind(a, b) = (us = uniqueinds(a, b); isempty(us) ? nothing : first(us))
 replaceind(t, p::Pair) = replaceinds(t, p)
 replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
 
-_as_index_vec(x::Index) = [x]
-_as_index_vec(xs) = collect(xs)
-cat_inds(xs...) = reduce(vcat, map(_as_index_vec, xs))
-
 const _IndexColl = Union{Tuple{Vararg{Index}}, AbstractVector{<:Index}}
 function replaceinds(t, pairs::Pair...)
     return replacedimnames(t, map(p -> name(first(p)) => name(last(p)), pairs)...)
@@ -110,64 +106,31 @@ delta(is::Tuple) = delta(Float64, is)
 delta(is::Index...) = delta(Float64, is)
 delta(is::AbstractVector{<:Index}) = delta(Float64, Tuple(is))
 
-function itensor_tr(t::AbstractITensor)
-    unprimed = filter(i -> plev(i) == 0, inds(t))
-    codomain, domain = conj.(unprimed), conj.(prime.(unprimed))
-    return scalar(t * one(similar_map(t, codomain, domain), codomain, domain))
-end
-
-const svd_trunc = MAK.svd_trunc
-
-function qr(a::AbstractITensor, linds...)
-    left = cat_inds(linds...)
-    right = setdiff(inds(a), left)
-    return MAK.qr_compact(a, Tuple(left), Tuple(right))
+# The codomain/domain bipartition of an operator tensor: each plev-0 index paired with its
+# prime. Viewing the operator as this square map is what `tr` and `eigen` factor through.
+function operator_inds(a::AbstractITensor)
+    domain = filter(i -> plev(i) == 0, inds(a))
+    return prime.(domain), domain
 end
 
 apply(o::AbstractITensor, ψ::AbstractITensor) = noprime(o * ψ)
 
-_astuple(x::Index) = (x,)
-_astuple(x) = Tuple(x)
-
-function svd(a::AbstractITensor, codomain; kwargs...)
-    return MAK.svd_compact(a, _astuple(codomain); kwargs...)
-end
-function svd(a::AbstractITensor, codomain, domain; kwargs...)
-    return MAK.svd_compact(a, _astuple(codomain), _astuple(domain); kwargs...)
-end
-
-function _eigh(
-        m::AbstractITensor,
-        codomain,
-        domain;
-        ishermitian = false,
-        cutoff = nothing
-    )
+function eigen(m::AbstractITensor, codomain, domain; ishermitian = false, cutoff = nothing)
     ishermitian ||
         error("the compat `eigen` only supports the hermitian case (ishermitian = true)")
     isnothing(cutoff) || error(
         "the compat `eigen` does not yet translate the `cutoff` truncation kwarg to MatrixAlgebraKit's `trunc` spec"
     )
-    cod, dom = _astuple(codomain), _astuple(domain)
-    D, U = MAK.eigh_full(m, cod, dom)
+    D, U = MAK.eigh_full(m, codomain, domain)
     u = only(commoninds(D, U))
     t = only(uniqueinds(D, U))
     D = replaceinds(D, t => ITensorBase.prime(u))
     return D, U
 end
 
-function eigen(m::AbstractITensor, codomain, domain; kwargs...)
-    return _eigh(m, codomain, domain; kwargs...)
-end
-
 function eigen(m::AbstractITensor; kwargs...)
-    is = collect(inds(m))
-    p0 = filter(i -> plev(i) == 0, is)
-    p1 = filter(i -> plev(i) != 0, is)
-    length(p0) == length(p1) || error(
-        "`eigen` without an index partition expects each plev-0 index to be paired with its prime"
-    )
-    D, U = _eigh(m, Tuple(p1), Tuple(p0); kwargs...)
+    codomain, domain = operator_inds(m)
+    D, U = eigen(m, codomain, domain; kwargs...)
     return D, conj(U)
 end
 
@@ -178,45 +141,23 @@ function itensor_trunc(; maxdim = nothing, cutoff = nothing)
     return trunc
 end
 
-function _bipartition_inds(a::AbstractITensor, linds)
-    lnames = name.(cat_inds(linds...))
-    allinds = collect(inds(a))
-    left = filter(i -> name(i) ∈ lnames, allinds)
-    right = filter(i -> name(i) ∉ lnames, allinds)
-    return left, right
-end
-
 function factorize(
         a::AbstractITensor,
-        linds...;
+        codomain;
         ortho = "left",
         cutoff = nothing,
         maxdim = nothing,
         tags = nothing
     )
-    left, right = _bipartition_inds(a, linds)
-    notruncation = (isnothing(cutoff) || iszero(cutoff)) && isnothing(maxdim)
-    if notruncation
-        if ortho == "left"
-            L, R = MAK.qr_compact(a, Tuple(left), Tuple(right))
-        elseif ortho == "right"
-            L, R = MAK.lq_compact(a, Tuple(left), Tuple(right))
-        else
-            error(
-                "compat `factorize` supports ortho = \"left\" / \"right\" (got $(repr(ortho)))"
-            )
-        end
+    # `left_orth` / `right_orth` take the codomain indices and infer the domain, and `trunc`
+    # covers both the exact (no cutoff/maxdim) and truncating cases.
+    trunc = itensor_trunc(; cutoff, maxdim)
+    if ortho == "left"
+        L, R = MAK.left_orth(a, codomain; trunc)
+    elseif ortho == "right"
+        L, R = MAK.right_orth(a, codomain; trunc)
     else
-        U, S, Vt = MAK.svd_trunc(a, Tuple(left), Tuple(right); trunc = itensor_trunc(; cutoff, maxdim))
-        if ortho == "left"
-            L, R = U, S * Vt
-        elseif ortho == "right"
-            L, R = U * S, Vt
-        else
-            error(
-                "compat `factorize` supports ortho = \"left\" / \"right\" (got $(repr(ortho)))"
-            )
-        end
+        error("compat `factorize` supports ortho = \"left\" / \"right\" (got $(repr(ortho)))")
     end
     if !isnothing(tags)
         b = only(commoninds(L, R))

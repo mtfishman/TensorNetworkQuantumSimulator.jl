@@ -430,7 +430,7 @@ function generic_apply(
         end
 
         keep = left_link === nothing ? Index[site...] : Index[site..., left_link]
-        L, R = factorize(T, keep...; ortho = "left", cutoff, maxdim, tags = "Link,l=$i")
+        L, R = factorize(T, keep; ortho = "left", cutoff, maxdim, tags = "Link,l=$i")
         push!(out, L)
         carry = R
         left_link = only(commoninds(L, R))
@@ -441,7 +441,7 @@ function generic_apply(
     # Back sweep: right-to-left SVD recompression (optimal truncation of the forward result).
     for i in length(out):-1:2
         bond = only(commoninds(out[i - 1], out[i]))
-        L, R = factorize(out[i], bond; ortho = "right", cutoff, maxdim, tags = "Link,l=$(i - 1)")
+        L, R = factorize(out[i], [bond]; ortho = "right", cutoff, maxdim, tags = "Link,l=$(i - 1)")
         out[i] = R
         out[i - 1] *= L
     end

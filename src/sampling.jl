@@ -25,7 +25,7 @@ function sample(
             seq = contraction_sequence(tensors; alg = "optimal")
             ρ = contract(tensors; sequence = seq)
 
-            ρ_tr = itensor_tr(ρ)
+            ρ_tr = tr(ρ, operator_inds(ρ)...)
             ρ *= inv(ρ_tr)
             ρ_diag = collect(real.(diag(array(ρ))))
             config = StatsBase.sample(1:length(ρ_diag), Weights(ρ_diag))
@@ -203,7 +203,7 @@ function get_one_sample(
                 # dangling non-physical legs the applied row carried into the message
                 # (e.g. charge legs of projected sites); the bra copy pairs them.
                 net_inds = virtualinds(network(norm_bmps_cache), e)
-                aux = setdiff(inds(mt), cat_inds(net_inds, (inds(m) for m in outgoing_mps if m !== mt)...))
+                aux = setdiff(inds(mt), net_inds, (inds(m) for m in outgoing_mps if m !== mt)...)
                 setmessage!(norm_bmps_cache, e, ITensor[mt, bra_tensor(mt, aux)])
             end
 
@@ -238,7 +238,7 @@ function sample_partition!(
         ts = [incoming_ms; [ψv, ψvdag]]
         seq = contraction_sequence(ts; alg = "optimal")
         ρ = contract(ts; sequence = seq)
-        ρ_tr = itensor_tr(ρ)
+        ρ_tr = tr(ρ, operator_inds(ρ)...)
         push!(traces, ρ_tr)
         ρ *= inv(ρ_tr)
         ρ_diag = collect(real.(diag(array(ρ))))

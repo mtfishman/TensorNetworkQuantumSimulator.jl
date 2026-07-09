@@ -40,7 +40,7 @@ function full_update(
         M = Rᵥ₁ * Rᵥ₂
         codomain = inds(Rᵥ₁)
         # Balanced SVD: split the singular values symmetrically (√S into each factor).
-        U, S, V = svd_trunc(M, codomain; trunc = itensor_trunc(; apply_kwargs...))
+        U, S, V = MAK.svd_trunc(M, codomain; trunc = itensor_trunc(; apply_kwargs...))
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)
@@ -114,8 +114,9 @@ function optimise_p_q(
         envisposdef = true,
         apply_kwargs...,
     )
+    pq = apply(o, p * q)
     p_cur, q_cur = factorize(
-        apply(o, p * q), inds(p); tags = tags(commonind(p, q)), apply_kwargs...
+        pq, intersect(inds(pq), inds(p)); tags = tags(commonind(p, q)), apply_kwargs...
     )
 
     fstart = print_fidelity_loss ? fidelity(envs, p_cur, q_cur, p, q, o) : 0

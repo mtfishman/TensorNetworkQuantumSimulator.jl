@@ -35,7 +35,7 @@ function symmetric_gauge!(bp_cache::BeliefPropagationCache; regularization = 10 
         # tensors' bond legs, so the SVD factors below absorb without any flips.
         Ce = rootX * replaceinds(rootY, edge_ind_p, edge_ind_sim)
 
-        U, S, V = svd(Ce, edge_ind_p; kwargs...)
+        U, S, V = MAK.svd_compact(Ce, edge_ind_p; kwargs...)
         u, v = commoninds(S, U), commoninds(S, V)
 
         ψvsrc = replaceinds(ψvsrc, edge_ind, edge_ind_p) * U

@@ -1,5 +1,5 @@
 function normalize_rdm(ρ::ITensor)
-    return ρ / itensor_tr(ρ)
+    return ρ / tr(ρ, operator_inds(ρ)...)
 end
 
 """
