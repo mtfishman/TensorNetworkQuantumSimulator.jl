@@ -59,18 +59,17 @@ function simple_update(
         # side is isometric. The bond stays on `prime(u)` (keeping `u`'s name), so once this
         # function `noprime`s its result the bond becomes `u`, which the returned `s_values` (over
         # `(u, v)`) still shares for `apply_gate!`'s bond-message construction.
-        U, S, V = MAK.svd_trunc(oR, union(rᵥ₁, sᵥ₁); trunc = itensor_trunc(; apply_kwargs...))
+        U, S, V, ϵ = MAK.svd_trunc(oR, union(rᵥ₁, sᵥ₁); trunc = itensor_trunc(; apply_kwargs...))
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)
         Rᵥ₁, Rᵥ₂ = U * replaceinds(sqrtS, v => prime(u)), replaceinds(sqrtS, u => prime(u)) * V
         s_values = S
-        # Best-effort truncation error from norms (SVD preserves the Frobenius norm); suffers
-        # catastrophic cancellation when little is discarded. TODO: expose MatrixAlgebraKit's `ϵ`
-        # from `ITensorBase.svd_trunc` and use it here instead.
-        total = abs2(norm(oR))
-        err = iszero(total) ? zero(real(scalartype(oR))) :
-            max(zero(real(scalartype(oR))), 1 - abs2(norm(S)) / total)
+        # Relative squared truncation error, from MatrixAlgebraKit's exact discarded-weight `ϵ`
+        # (the 2-norm of the discarded singular values) rather than the cancellation-prone
+        # `1 - ‖S‖²/‖oR‖²` norm subtraction.
+        total = norm(oR)
+        err = iszero(total) ? zero(real(scalartype(oR))) : (ϵ / total)^2
         Qᵥ₁ = contract_network([Qᵥ₁; conj.(inv_sqrt_envs_v1)])
         Qᵥ₂ = contract_network([Qᵥ₂; conj.(inv_sqrt_envs_v2)])
         updated_tensors = [Qᵥ₁ * Rᵥ₁, Qᵥ₂ * Rᵥ₂]

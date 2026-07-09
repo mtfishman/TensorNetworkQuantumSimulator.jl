@@ -40,16 +40,16 @@ function full_update(
         M = Rᵥ₁ * Rᵥ₂
         codomain = inds(Rᵥ₁)
         # Balanced SVD: split the singular values symmetrically (√S into each factor).
-        U, S, V = MAK.svd_trunc(M, codomain; trunc = itensor_trunc(; apply_kwargs...))
+        U, S, V, ϵ = MAK.svd_trunc(M, codomain; trunc = itensor_trunc(; apply_kwargs...))
         u = only(commoninds(U, S))
         v = only(commoninds(S, V))
         sqrtS = sqrth_safe(S, (u,), (v,); atol = 0, rtol = 0)
         Rᵥ₁, Rᵥ₂ = U * replaceinds(sqrtS, v => prime(u)), replaceinds(sqrtS, u => prime(u)) * V
-        # Best-effort truncation error from norms; suffers catastrophic cancellation when little is
-        # discarded. TODO: expose MatrixAlgebraKit's `ϵ` from `ITensorBase.svd_trunc` and use it here.
-        total = abs2(norm(M))
-        truncation_error = iszero(total) ? zero(real(scalartype(M))) :
-            max(zero(real(scalartype(M))), 1 - abs2(norm(S)) / total)
+        # Relative squared truncation error, from MatrixAlgebraKit's exact discarded-weight `ϵ`
+        # (the 2-norm of the discarded singular values) rather than the cancellation-prone
+        # `1 - ‖S‖²/‖M‖²` norm subtraction.
+        total = norm(M)
+        truncation_error = iszero(total) ? zero(real(scalartype(M))) : (ϵ / total)^2
         callback(; singular_values = S, truncation_error)
     end
     ψᵥ₁ = Qᵥ₁ * Rᵥ₁
