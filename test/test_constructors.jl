@@ -3,8 +3,8 @@ using Dictionaries: Dictionary
 using ITensorBase: Index, inds
 using Random
 using TensorNetworkQuantumSimulator
-# `random_itensor` / `contract` are TNQS-owned; reach them via the `TNQS` alias. `dag` is
-# TNQS-owned; `prime` and `inds` are ITensorBase's.
+# `contract` is TNQS-owned; reach it via the `TNQS` alias. `dag` is TNQS-owned; `prime`,
+# `inds`, and `randn` (over `Index`es) are ITensorBase's.
 const TNQS = TensorNetworkQuantumSimulator
 using TensorNetworkQuantumSimulator: dag, prime
 using Test: @testset, @test, @test_throws
@@ -15,7 +15,7 @@ using Test: @testset, @test, @test_throws
 
     #TensorNetwork construction from tensors
     i, j, k, l = Index(2), Index(2), Index(2), Index(2)
-    A, B, C, D = TNQS.random_itensor(i, j), TNQS.random_itensor(j, k), TNQS.random_itensor(k, l), TNQS.random_itensor(l, i)
+    A, B, C, D = randn(i, j), randn(j, k), randn(k, l), randn(l, i)
     t = TensorNetwork([A, B, C, D])
     @test t isa TensorNetwork
     @test scalartype(t) == eltype(A)

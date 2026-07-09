@@ -187,12 +187,6 @@ function itensor(array, is...)
 end
 itensor(array, is::Union{Tuple, AbstractVector}) = itensor(array, is...)
 
-# Random ITensor over the given indices (legacy `random_itensor`).
-random_itensor(eltype::Type, is::Index...) = randn(eltype, is...)
-random_itensor(eltype::Type, is::Union{Tuple, AbstractVector}) = randn(eltype, is...)
-random_itensor(is::Index...) = random_itensor(Float64, is...)
-random_itensor(is::Union{Tuple, AbstractVector}) = random_itensor(Float64, is)
-
 # Rank-0 scalar extraction (legacy `scalar`).
 scalar(t::AbstractITensor) = t[]
 

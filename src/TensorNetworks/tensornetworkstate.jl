@@ -123,7 +123,7 @@ function random_tensornetworkstate(eltype, g::AbstractGraph, siteinds::Dictionar
     tensors = Dictionary{vertextype(g), ITensor}()
     for v in vs
         is = vcat(siteinds[v], [l[NamedEdge(v => vn)] for vn in neighbors(g, v)])
-        set!(tensors, v, random_itensor(eltype, is))
+        set!(tensors, v, randn(eltype, is...))
     end
     return TensorNetworkState(TensorNetwork(tensors, g), siteinds)
 end

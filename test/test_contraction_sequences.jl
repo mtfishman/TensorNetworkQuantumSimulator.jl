@@ -3,7 +3,7 @@ using ITensorBase: Index, name
 using Random
 using TensorNetworkQuantumSimulator
 const TNQS = TensorNetworkQuantumSimulator
-# `random_itensor`/`contract`/`scalar` come from TNQS's compat layer (see test_constructors).
+# `contract`/`scalar` are TNQS-owned; `randn` (over `Index`es) is ITensorBase's.
 using TensorNetworkQuantumSimulator: scalar
 using OMEinsumContractionOrders: NestedEinsum, EinCode, getixsv, getiyv
 using Test: @testset, @test
@@ -20,8 +20,8 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
     #     Labels are index names: a shared leg's `Index` differs between its two tensors
     #     under a graded backend (nondual vs dual), so names are the backend-stable label.
     i, j, k = Index(2), Index(3), Index(4)
-    A = TNQS.random_itensor(i, j)
-    B = TNQS.random_itensor(j, k)
+    A = randn(i, j)
+    B = randn(j, k)
     code, size_dict = TNQS.to_eincode([A, B])
     @test Set(Set.(getixsv(code))) == Set([Set(name.([i, j])), Set(name.([j, k]))])  # per-tensor index sets
     @test Set(getiyv(code)) == Set(name.([i, k]))                    # open indices (j is contracted)
@@ -57,9 +57,9 @@ collect_leaves!(acc, x) = (for y in x; collect_leaves!(acc, y); end; acc)
 
     # --- open network: result is a tensor with dangling indices (iy non-empty).
     p, q, r, s, t = Index(2), Index(3), Index(2), Index(3), Index(2)
-    X = TNQS.random_itensor(p, q)
-    Y = TNQS.random_itensor(q, r, s)
-    Z = TNQS.random_itensor(s, t)
+    X = randn(p, q)
+    Y = randn(q, r, s)
+    Z = randn(s, t)
     open_tensors = [X, Y, Z]   # open indices: p, r, t
     seq_open = TNQS.contraction_sequence(open_tensors; alg = "omeinsum", optimizer = GreedyMethod())
     @test sort(collect_leaves!(Int[], seq_open)) == [1, 2, 3]

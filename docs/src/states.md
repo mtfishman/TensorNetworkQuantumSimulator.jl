@@ -8,10 +8,10 @@ A `TensorNetwork` is the simpler of the two types: a collection of ITensors livi
 
 ```julia
 using TensorNetworkQuantumSimulator
-using ITensors: Index, random_itensor
+using ITensorBase: Index
 
-i, j = Index(2, "i"), Index(2, "j")
-t_a, t_b, t_c = random_itensor(i), random_itensor(i, j), random_itensor(j)
+i, j = Index(2), Index(2)
+t_a, t_b, t_c = randn(i), randn(i, j), randn(j)
 # Construct from a dictionary of tensors (graph is inferred from shared indices)
 tn = TensorNetwork(Dictionary(["a", "b", "c"], [t_a, t_b, t_c]))
 
