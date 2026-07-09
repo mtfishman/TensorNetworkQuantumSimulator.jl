@@ -3,10 +3,10 @@ using Dictionaries: Dictionary
 using ITensorBase: Index, inds
 using Random
 using TensorNetworkQuantumSimulator
-# `contract` is TNQS-owned; reach it via the `TNQS` alias. `dag` is TNQS-owned; `prime`,
-# `inds`, and `randn` (over `Index`es) are ITensorBase's.
+# `contract` is TNQS-owned; reach it via the `TNQS` alias. `prime`, `inds`, and `randn`
+# (over `Index`es) are ITensorBase's; `conj` is `Base`.
 const TNQS = TensorNetworkQuantumSimulator
-using TensorNetworkQuantumSimulator: dag, prime
+using TensorNetworkQuantumSimulator: prime
 using Test: @testset, @test, @test_throws
 
 
@@ -34,7 +34,7 @@ using Test: @testset, @test, @test_throws
         @test maxvirtualdim(ψ) == 3
         @test all([length(inds(ψ[v])) == degree(g, v) for v in vertices(ψ)])
 
-        ψdag = map_virtualinds(prime, map_tensors(dag, ψ))
+        ψdag = map_virtualinds(prime, map_tensors(conj, ψ))
         @test ψdag isa TensorNetwork
         @test TNQS.contract(ψdag; alg = "exact") ≈ conj(TNQS.contract(ψ; alg = "exact"))
 

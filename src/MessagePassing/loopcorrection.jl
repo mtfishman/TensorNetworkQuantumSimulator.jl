@@ -38,7 +38,7 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
             linds_sim = sim.(linds)
             mer = replaceinds(mer, linds, linds_sim)
             if network(bpc) isa TensorNetworkState
-                mer = replaceinds(mer, dag.(prime.(linds)), dag.(prime.(linds_sim)))
+                mer = replaceinds(mer, conj.(prime.(linds)), conj.(prime.(linds_sim)))
             end
             ms = messages(bpc)
             set!(ms, reverse(e), mer)
@@ -60,14 +60,14 @@ function sim_edgeinduced_subgraph(bpc::BeliefPropagationCache, eg)
                 # for the rows, the relabeled `mer` for the columns) so `ap - me * mer`
                 # lines up on every backend: the two messages carry mutually dual copies
                 # of the bond axes. The domain of the fused identity comes out dualized
-                # relative to the passed indices, so the columns go in `dag`ed.
+                # relative to the passed indices, so the columns go in `conj`ed.
                 row_inds = Index[only(commoninds(me, [l])) for l in linds]
                 col_inds = Index[only(commoninds(mer, [l])) for l in linds_sim]
                 if network(bpc) isa TensorNetworkState
                     append!(row_inds, Index[only(commoninds(me, [prime(l)])) for l in linds])
                     append!(col_inds, Index[only(commoninds(mer, [prime(l)])) for l in linds_sim])
                 end
-                ap = adapt_like(me, identity_tensor(row_inds, dag.(col_inds)))
+                ap = adapt_like(me, identity_tensor(row_inds, conj.(col_inds)))
                 ap = ap - me * mer
                 push!(antiprojectors, ap)
             end

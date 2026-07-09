@@ -23,7 +23,7 @@ end
 
 function default_message(form::AbstractForm, edge::AbstractEdge)
     cod = virtualinds(ket(form), edge)
-    dom = dag.(bra_virtualinds(form, edge))
+    dom = conj.(bra_virtualinds(form, edge))
     return one(similar_map(ket(form)[src(edge)], cod, dom), cod, dom)
 end
 

@@ -5,7 +5,7 @@ default_truncate_alg(tns::TensorNetworkState) = nothing
 function truncatable_edge(cache::AbstractBeliefPropagationCache, e::NamedEdge)
     vinds = virtualinds(cache, e)
     isempty(vinds) && return false
-    all([dim(vind) == 1 for vind in vinds]) && return false
+    all([length(vind) == 1 for vind in vinds]) && return false
     return true
 end
 

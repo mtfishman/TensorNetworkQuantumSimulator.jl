@@ -71,8 +71,8 @@ function simple_update(
         total = abs2(norm(oR))
         err = iszero(total) ? zero(real(scalartype(oR))) :
             max(zero(real(scalartype(oR))), 1 - abs2(norm(S)) / total)
-        Qᵥ₁ = contract([Qᵥ₁; dag.(inv_sqrt_envs_v1)])
-        Qᵥ₂ = contract([Qᵥ₂; dag.(inv_sqrt_envs_v2)])
+        Qᵥ₁ = contract([Qᵥ₁; conj.(inv_sqrt_envs_v1)])
+        Qᵥ₂ = contract([Qᵥ₂; conj.(inv_sqrt_envs_v2)])
         updated_tensors = [Qᵥ₁ * Rᵥ₁, Qᵥ₂ * Rᵥ₂]
         if normalize_tensors
             s_values = normalize(s_values)

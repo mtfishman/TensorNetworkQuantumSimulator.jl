@@ -133,8 +133,8 @@ function virtual_index_dimension(
     inds_above = collect(Iterators.flatten(virtualinds.((bmps_cache,), edges_above(bmps_cache, lower_e))))
     inds_below = collect(Iterators.flatten(virtualinds.((bmps_cache,), edges_below(bmps_cache, upper_e))))
 
-    x1 = prod(Float64.(dim.(inds_above)))
-    x2 = prod(Float64.(dim.(inds_below)))
+    x1 = prod(Float64.(length.(inds_above)))
+    x2 = prod(Float64.(length.(inds_below)))
     if network(bmps_cache) isa TensorNetworkState
         return Int(minimum((x1 * x1, x2 * x2, Float64(mps_bond_dimension(bmps_cache)))))
     else
@@ -200,7 +200,7 @@ function set_interpartition_messages!(
             # The two copies of the stitching leg contract against each other along the
             # message MPS, so one side takes the conjugate.
             setmessage!(bmps_cache, es[i], m1 * t)
-            setmessage!(bmps_cache, es[i + 1], m2 * dag(t))
+            setmessage!(bmps_cache, es[i + 1], m2 * conj(t))
         end
     end
     return bmps_cache
@@ -210,8 +210,8 @@ end
 function switch_message!(bmps_cache::BoundaryMPSCache, e::NamedEdge)
     ms = messages(bmps_cache)
     me, mer = message(bmps_cache, e), message(bmps_cache, reverse(e))
-    set!(ms, e, dag(mer))
-    set!(ms, reverse(e), dag(me))
+    set!(ms, e, conj(mer))
+    set!(ms, reverse(e), conj(me))
     return bmps_cache
 end
 
@@ -308,7 +308,7 @@ function inserter!(
         update_e::NamedEdge,
         m::ITensor
     )
-    setmessage!(bmps_cache, reverse(update_e), dag(m))
+    setmessage!(bmps_cache, reverse(update_e), conj(m))
     return bmps_cache
 end
 

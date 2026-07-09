@@ -25,7 +25,7 @@ function full_update(
         ψ[v⃗[2]], uniqueinds(uniqueinds(ψ[v⃗[2]], ψ[v⃗[1]]), uniqueinds(ψ, v⃗[2]))
     )
 
-    extended_envs = vcat(envs, Qᵥ₁, prime(dag(Qᵥ₁)), Qᵥ₂, prime(dag(Qᵥ₂)))
+    extended_envs = vcat(envs, Qᵥ₁, prime(conj(Qᵥ₁)), Qᵥ₂, prime(conj(Qᵥ₂)))
     Rᵥ₁, Rᵥ₂ = optimise_p_q(
         Rᵥ₁,
         Rᵥ₂,
@@ -69,13 +69,13 @@ function fidelity(
     p_sind, q_sind = commonind(p_cur, gate), commonind(q_cur, gate)
     p_sind_sim, q_sind_sim = sim(p_sind), sim(q_sind)
     gate_sq =
-        gate * replaceinds(dag(gate), Index[p_sind, q_sind], Index[p_sind_sim, q_sind_sim])
+        gate * replaceinds(conj(gate), Index[p_sind, q_sind], Index[p_sind_sim, q_sind_sim])
     term1_tns = vcat(
         [
             p_prev,
             q_prev,
-            replaceind(prime(dag(p_prev)), prime(p_sind), p_sind_sim),
-            replaceind(prime(dag(q_prev)), prime(q_sind), q_sind_sim),
+            replaceind(prime(conj(p_prev)), prime(p_sind), p_sind_sim),
+            replaceind(prime(conj(q_prev)), prime(q_sind), q_sind_sim),
             gate_sq,
         ],
         envs,
@@ -87,14 +87,14 @@ function fidelity(
         [
             p_cur,
             q_cur,
-            replaceind(prime(dag(p_cur)), prime(p_sind), p_sind),
-            replaceind(prime(dag(q_cur)), prime(q_sind), q_sind),
+            replaceind(prime(conj(p_cur)), prime(p_sind), p_sind),
+            replaceind(prime(conj(q_cur)), prime(q_sind), q_sind),
         ],
         envs,
     )
     sequence = contraction_sequence(term2_tns; alg = "optimal")
     term2 = contract(term2_tns; sequence)
-    term3_tns = vcat([p_prev, q_prev, prime(dag(p_cur)), prime(dag(q_cur)), gate], envs)
+    term3_tns = vcat([p_prev, q_prev, prime(conj(p_cur)), prime(conj(q_cur)), gate], envs)
     sequence = contraction_sequence(term3_tns; alg = "optimal")
     term3 = contract(term3_tns; sequence)
 
@@ -103,7 +103,7 @@ function fidelity(
 end
 
 """Do Full Update Sweeping, Optimising the tensors p and q in the presence of the environments envs,
-Specifically this functions find the p_cur and q_cur which optimise envs*gate*p*q*dag(prime(p_cur))*dag(prime(q_cur))"""
+Specifically this functions find the p_cur and q_cur which optimise envs*gate*p*q*conj(prime(p_cur))*conj(prime(q_cur))"""
 function optimise_p_q(
         p::ITensor,
         q::ITensor,
@@ -124,7 +124,7 @@ function optimise_p_q(
     ps_ind = namesetdiff(inds(p_cur), collect(Iterators.flatten(inds.(vcat(envs, q_cur)))))
 
     function b(p::ITensor, q::ITensor, o::ITensor, envs::Vector{ITensor}, r::ITensor)
-        ts = vcat(ITensor[p, q, o, dag(prime(r))], envs)
+        ts = vcat(ITensor[p, q, o, conj(prime(r))], envs)
         sequence = contraction_sequence(ts; alg = "optimal")
         return noprime(contract(ts; sequence))
     end
@@ -132,7 +132,7 @@ function optimise_p_q(
     function M_p(envs::Vector{ITensor}, p_q_tensor::ITensor, s_ind, apply_tensor::ITensor)
         ts = vcat(
             ITensor[
-                p_q_tensor, replaceinds(prime(dag(p_q_tensor)), prime.(s_ind), s_ind), apply_tensor,
+                p_q_tensor, replaceinds(prime(conj(p_q_tensor)), prime.(s_ind), s_ind), apply_tensor,
             ],
             envs,
         )

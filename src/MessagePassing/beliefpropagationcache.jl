@@ -119,7 +119,7 @@ default_bp_update_kwargs(bp_cache::BeliefPropagationCache) = default_bp_update_k
 function make_hermitian(A::ITensor)
     A_inds = inds(A)
     @assert length(A_inds) == 2
-    return (A + swapind(dag(A), first(A_inds), last(A_inds))) / 2
+    return (A + swapind(conj(A), first(A_inds), last(A_inds))) / 2
 end
 
 function rescale_messages!(bp_cache::BeliefPropagationCache, edges::Vector{<:AbstractEdge})

@@ -24,7 +24,7 @@ virtualinds(tn::AbstractTensorNetwork, e::NamedEdge) = commoninds(tn[src(e)], tn
 virtualind(tn::AbstractTensorNetwork, e::NamedEdge) = only(virtualinds(tn, e))
 
 function maxvirtualdim(tn::AbstractTensorNetwork)
-    return maximum(maximum.([dim.(virtualinds(tn, e)) for e in edges(tn)]))
+    return maximum(maximum.([length.(virtualinds(tn, e)) for e in edges(tn)]))
 end
 
 # Compare by name, not by `Index` equality: a shared graded link is stored nondual
@@ -123,7 +123,7 @@ function add(tn1::AbstractTensorNetwork, tn2::AbstractTensorNetwork)
             es,
             [
                 Index(
-                        dim(only(virtualinds(tn1, e))) + dim(only(virtualinds(tn2, e))),
+                        length(only(virtualinds(tn1, e))) + length(only(virtualinds(tn2, e))),
                     ) for e in es
             ],
         ),

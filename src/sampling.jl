@@ -32,7 +32,7 @@ function sample(
             # config is 1,2,...,d, but we want 0,1...,d-1 for the sample itself
             set!(bit_string, v, config - 1)
             s_ind = inds(ρ)[findfirst(i -> plev(i) == 0, inds(ρ))]
-            P = adapt_like(ρ, dag(onehot(s_ind => config)))
+            P = adapt_like(ρ, conj(onehot(s_ind => config)))
             setindex_preserve!(projected_bp_cache, ψv * P, v)
 
             if v != last(vertices(ψ))
@@ -246,7 +246,7 @@ function sample_partition!(
         # config is 1,2,...,d, but we want 0,1...,d-1 for the sample itself
         set!(bit_string, v, config - 1)
         s_ind = inds(ρ)[findfirst(i -> plev(i) == 0, inds(ρ))]
-        P = adapt_like(ρ, dag(onehot(s_ind => config)))
+        P = adapt_like(ρ, conj(onehot(s_ind => config)))
         q = ρ_diag[config]
         logq += log(q)
         Pψv = copy(network(norm_bmps_cache)[v]) * inv(sqrt(q)) * P
@@ -274,7 +274,7 @@ function certify_sample(
     s = siteinds(ψ)
     qv = sqrt(exp(inv(oftype(logq, length(vertices(ψ)))) * logq))
     for v in vertices(ψ)
-        P = adapt_like(ψproj[v], dag(onehot(only(s[v]) => bitstring[v] + 1)))
+        P = adapt_like(ψproj[v], conj(onehot(only(s[v]) => bitstring[v] + 1)))
         setindex_preserve!(ψproj, ψproj[v] * P * inv(qv), v)
     end
 

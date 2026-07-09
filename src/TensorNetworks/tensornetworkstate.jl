@@ -54,11 +54,11 @@ function Base.setindex!(tns::TensorNetworkState, value::ITensor, v)
     return tns
 end
 
-# Bra copy of a tensor: `dag` and prime all legs except `auxinds` — dangling
+# Bra copy of a tensor: `conj` and prime all legs except `auxinds` — dangling
 # non-physical legs (e.g. a charged state's charge leg), which always pair directly
 # between ket and bra rather than through an operator or a message.
 function bra_tensor(t::ITensor, auxinds::Vector{<:Index})
-    tdag = dag(prime(t))
+    tdag = conj(prime(t))
     return isempty(auxinds) ? tdag : replaceinds(tdag, prime.(auxinds), auxinds)
 end
 bra_tensor(tns::TensorNetworkState, v) = bra_tensor(tns[v], auxinds(tns, v))
@@ -96,7 +96,7 @@ bp_factors(tns::TensorNetworkState, v) = norm_factors(tns, v)
 # links give a graded message; the legacy `delta` filled a dense diagonal).
 function default_message(tns::TensorNetworkState, edge::AbstractEdge)
     linds = virtualinds(tns, edge)
-    cod, dom = Tuple(linds), Tuple(prime.(dag(linds)))
+    cod, dom = Tuple(linds), Tuple(prime.(conj.(linds)))
     return adapt_like(tns, one(zeros(scalartype(tns), cod..., dom...), cod, dom))
 end
 

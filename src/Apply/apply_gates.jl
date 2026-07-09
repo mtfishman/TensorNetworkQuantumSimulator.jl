@@ -118,7 +118,7 @@ function apply_gate!(
         # (`s * sign(s)` via `map_diag!`) was a no-op and is dropped; fermionic sign
         # handling for this message construction is future work.
         s_values = replaceind(s_values, v, prime(u))
-        setmessage!(ψ_bpc, e, dag(s_values))
+        setmessage!(ψ_bpc, e, conj(s_values))
         setmessage!(ψ_bpc, reverse(e), s_values)
     end
 

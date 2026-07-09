@@ -9,9 +9,9 @@ import MatrixAlgebraKit as MAK
 import TensorAlgebra: matricize
 using Adapt: Adapt
 using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, dimnames,
-    id, name, nameddims, noprime, plev, prime, replacedimnames, sim, tags, unnamed
+    id, inds, name, nameddims, noprime, plev, prime, replacedimnames, sim, tags, unnamed
 using LinearAlgebra: LinearAlgebra
-using TensorAlgebra: TensorAlgebra, project, tryproject
+using TensorAlgebra: TensorAlgebra, project, scalar, tryproject
 
 #
 # State-vector projection, shared by the `Ops` state constructors and by `onehot`.
@@ -45,15 +45,6 @@ function onehot(eltype::Type, (i, p)::Pair{<:Index})
     return project_aux(v, i)
 end
 onehot(p::Pair{<:Index}) = onehot(Float64, p)
-
-# Legacy `inds(t; plev, tags)` took index-filtering keywords; `ITensorBase.inds` takes none.
-# This forwards to it and applies the legacy filters.
-function inds(t::AbstractITensor; plev = nothing, tags = nothing)
-    is = ITensorBase.inds(t)
-    isnothing(plev) || (is = filter(i -> ITensorBase.plev(i) == plev, is))
-    isnothing(tags) || (is = filter(i -> hastags(i, tags), is))
-    return is
-end
 
 # `contract` / `inner` are TNQS operations whose base generics live here and are extended
 # for TNQS types (tensor networks, caches) in the respective files.
@@ -126,17 +117,6 @@ noncommonind(a, b) = (us = uniqueinds(a, b); isempty(us) ? nothing : first(us))
 # Plural: indices not shared by both (symmetric difference).
 noncommoninds(a, b) = namesymdiff(_compat_inds(a), _compat_inds(b))
 
-# Index dimension (legacy `dim`). `dim(i)` is the length; `dim(is)` the product.
-dim(i::Index) = length(i)
-dim(is::Union{Tuple, AbstractVector}) = isempty(is) ? 1 : prod(length, is)
-
-# Conjugate (legacy `dag`): `conj` the tensor, and on bare indices flip the sector arrows
-# on a graded axis. `conj(::Index)` is id-preserving on the dense backend, so `dag` there
-# is effectively the identity on indices, matching legacy behavior.
-dag(t::AbstractITensor) = conj(t)
-dag(i::Index) = conj(i)
-dag(is::Union{Tuple, AbstractVector}) = map(conj, is)
-
 # `replaceind` (singular) maps to a single-pair replacement, forwarding to `replaceinds`.
 replaceind(t, p::Pair) = replaceinds(t, p)
 replaceind(t, from::Index, to::Index) = replaceinds(t, from => to)
@@ -169,26 +149,6 @@ end
 function replaceinds(t::AbstractITensor, p::Pair{<:_IndexColl, <:_IndexColl})
     return replaceinds(t, first(p), last(p))
 end
-
-# Legacy `itensor(array, inds)`: inherit the index spaces. NB: `ITensor(array, inds)`
-# with raw `Index` objects is intentionally NOT supported by ITensorBase (the space
-# is underdefined); use the indexing form, which inherits the indices' spaces, or
-# `ITensor(array, name.(inds))` to take the space from the array. Like the legacy
-# constructor, a matching total length is accepted and reshaped to the index
-# dimensions (e.g. a `d^2 × d^2` two-site gate matrix over four site legs).
-function itensor(array, is...)
-    length(array) == prod(length, is) ||
-        throw(
-        DimensionMismatch(
-            "array with $(length(array)) elements cannot fill indices of dimensions $(length.(is))"
-        )
-    )
-    return reshape(array, map(length, is))[is...]
-end
-itensor(array, is::Union{Tuple, AbstractVector}) = itensor(array, is...)
-
-# Rank-0 scalar extraction (legacy `scalar`).
-scalar(t::AbstractITensor) = t[]
 
 # Dense Kronecker delta tensor (legacy `delta`), vendored from ITensorNetworksNext's
 # `ITensorNetworkGenerators/delta_network.jl`. A graded/sector-aware `delta` is a stack gap
@@ -247,13 +207,13 @@ delta(is::Index...) = delta(Float64, is)
 delta(is::AbstractVector{<:Index}) = delta(Float64, Tuple(is))
 
 # Trace over prime pairs (legacy ITensors `tr`): contract with the identity map pairing each
-# unprimed index with its prime. The domain is built as `dag.(prime.(codomain))`, not
-# `inds(t; plev=1)` — `plev` filtering does not preserve the pairing order between the plev-0 and
-# plev-1 groups. Named `itensor_tr` (not a `LinearAlgebra.tr` method, which would be piracy on
-# `AbstractITensor`) so it stays distinct from `tr` on plain matrices, which TNQS also calls.
+# unprimed index with its prime. The domain is built as `conj.(prime.(codomain))`, not
+# by filtering `plev == 1` — `plev` filtering does not preserve the pairing order between the
+# plev-0 and plev-1 groups. Named `itensor_tr` (not a `LinearAlgebra.tr` method, which would be
+# piracy on `AbstractITensor`) so it stays distinct from `tr` on plain matrices, which TNQS also calls.
 function itensor_tr(t::AbstractITensor)
-    unprimed = inds(t; plev = 0)
-    codomain, domain = dag.(unprimed), dag.(prime.(unprimed))
+    unprimed = filter(i -> plev(i) == 0, inds(t))
+    codomain, domain = conj.(unprimed), conj.(prime.(unprimed))
     return scalar(t * one(similar_map(t, codomain, domain), codomain, domain))
 end
 
@@ -320,7 +280,7 @@ function _eigh(
 end
 
 # Partitioned form `eigen(m, Linds, Rinds)` reproduces legacy ITensors' reconstruction
-# `m = Vt * D * dag(V)` (with `Vt` the relabeling of `V` from `Rinds` to `Linds`) —
+# `m = Vt * D * conj(V)` (with `Vt` the relabeling of `V` from `Rinds` to `Linds`) —
 # no conjugation of `U`.
 function eigen(m::AbstractITensor, codomain, domain; kwargs...)
     return _eigh(m, codomain, domain; kwargs...)
@@ -329,7 +289,7 @@ end
 # No-partition form `eigen(m)` matches legacy ITensors' `eigen(A)`, which auto-partitions
 # `Ris = filterinds(plev = 0)`, `Lis = Ris'`. That orientation is the adjoint view of the
 # partitioned call, so `eigh_full` returns the conjugate eigenvectors; `conj(U)` recovers
-# the convention `symmetric_gauge` uses (`U * D * prime(dag(U)) == m`, a true matrix sqrt).
+# the convention `symmetric_gauge` uses (`U * D * prime(conj(U)) == m`, a true matrix sqrt).
 function eigen(m::AbstractITensor; kwargs...)
     is = collect(inds(m))
     p0 = filter(i -> plev(i) == 0, is)
@@ -498,7 +458,6 @@ function Base.getproperty(alg::Algorithm, name::Symbol)
         getfield(getfield(alg, :kwargs), name)
     end
 end
-algorithm_name(::Algorithm{Alg}) where {Alg} = Alg
 macro Algorithm_str(s)
     return :(Algorithm{$(Expr(:quote, Symbol(s)))})
 end

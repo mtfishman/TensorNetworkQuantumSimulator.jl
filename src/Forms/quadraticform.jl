@@ -5,9 +5,9 @@ end
 
 ket(qf::QuadraticForm) = qf.ket
 operator(qf::QuadraticForm) = qf.operator
-bra(qf::QuadraticForm) = prime(dag(ket(qf)))
+bra(qf::QuadraticForm) = prime(conj(ket(qf)))
 bra_tensor(qf::QuadraticForm, v) = bra_tensor(ket(qf), v)
-bra_virtualinds(qf::QuadraticForm, edge::NamedEdge) = dag.(prime.(virtualinds(ket(qf), edge)))
+bra_virtualinds(qf::QuadraticForm, edge::NamedEdge) = conj.(prime.(virtualinds(ket(qf), edge)))
 
 Base.copy(qf::QuadraticForm) = QuadraticForm(copy(qf.ket), copy(qf.operator))
 
