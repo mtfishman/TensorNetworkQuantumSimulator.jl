@@ -6,9 +6,9 @@ import ITensorBase: scalartype, uniqueinds
 import MatrixAlgebraKit as MAK
 import TensorAlgebra: datatype
 using Adapt: Adapt
-using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commoninds,
+using ITensorBase: ITensorBase, AbstractITensor, ITensor, Index, NamedUnitRange, commonind, commoninds,
     dimnames, hascommoninds, id, inds, name, nameddims, noncommoninds, noprime, plev, prime,
-    replaceinds, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
+    replaceinds, settags, sim, tags, trycommonind, trynoncommonind, unioninds, unnamed
 using LinearAlgebra: LinearAlgebra
 using TensorAlgebra: TensorAlgebra, matricize, project, scalar, tryproject
 
@@ -135,12 +135,4 @@ function Base.getproperty(alg::Algorithm, name::Symbol)
 end
 macro Algorithm_str(s)
     return :(Algorithm{$(Expr(:quote, Symbol(s)))})
-end
-
-settags(i::Index, p::Pair) = ITensorBase.settag(i, first(p), last(p))
-function settags(i::Index, tags)
-    for (k, v) in tags
-        i = ITensorBase.settag(i, k, v)
-    end
-    return i
 end
