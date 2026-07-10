@@ -99,9 +99,6 @@ function Adapt.adapt_structure(::ScalarTypeAdaptor{elt}, T::AbstractITensor) whe
     return nameddims(convert(AbstractArray{elt}, unnamed(T)), ITensorBase.dimnames(T))
 end
 
-hasqns(i::Index) = conj(unnamed(i)) != unnamed(i)
-hasqns(t::AbstractITensor) = any(hasqns, inds(t))
-
 function directsum(out_inds, pairs::Pair...)
     t1, s1 = first(pairs[1]), last(pairs[1])
     shared = setdiff(inds(t1), s1)
