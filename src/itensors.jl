@@ -6,16 +6,66 @@ using Adapt: Adapt
 using ITensorBase: ITensorBase, ITensor, Index, inds, noprime, plev, prime, space, unnamed
 using TensorAlgebra: TensorAlgebra, project, tryproject
 
-function project_aux(v::AbstractVector{<:Number}, i::Index)
-    length(v) == length(i) ||
-        error(
-        "state vector has dimension $(length(v)) but the site index has dimension $(length(i))"
+# Project `a` onto the symmetry-restricted space given by `codomain`/`domain`, mirroring
+# `TensorAlgebra.project`/`tryproject` (three-argument operator form; `a` is indexed positionally
+# as `(codomain..., domain...)`). When the plain projection is charge-forbidden — a parity-odd
+# state or operator — the residual charge is absorbed into a trailing auxiliary index instead of
+# throwing, so the returned ITensor carries that extra aux leg last.
+function project_aux(a::AbstractArray, codomain, domain)
+    return @something tryproject(a, codomain, domain) begin
+        raw = project(reshape(a, (size(a)..., 1)), space.(codomain), space.(domain))
+        aux = Index(TensorAlgebra.axes(raw, ndims(a) + 1))
+        ITensor(raw, (codomain..., domain..., aux))
+    end
+end
+project_aux(a::AbstractArray, codomain) = project_aux(a, codomain, ())
+project_aux(v::AbstractVector{<:Number}, i::Index) = project_aux(v, (i,))
+
+# Build a pair of tensors that share one contractible auxiliary leg, so `t1 * t2` contracts the
+# pair (e.g. the fermion string of `c†ᵢcⱼ` from a `c†` and a `c`) with no `flip`. `codomain`/`domain`
+# give each operand's own axes; the shared aux is appended to each `domain`. Unlike `project_aux`, we
+# always want the aux, so we go straight to `project` (no `tryproject` fallback). Two layers mirror
+# `project`'s own split: a name-agnostic core, and a named wrapper over it.
+#
+# Name-agnostic core: mint the aux by projecting `a1` with a trailing dummy axis — `project` absorbs
+# `a1`'s residual charge into it — then attach that same aux axis to `a2`. Returns the two raw arrays,
+# each carrying the aux as its trailing axis. Uses only `project`/`reshape`/`axes` (no names), so it
+# could live beside `TensorAlgebra.project`.
+function project_pair(a1::AbstractArray, codomain1, domain1, a2::AbstractArray, codomain2, domain2)
+    p1 = project(reshape(a1, (size(a1)..., 1)), codomain1, domain1)
+    aux = TensorAlgebra.axes(p1, ndims(a1) + 1)
+    p2 = project(reshape(a2, (size(a2)..., 1)), codomain2, (domain2..., aux))
+    return p1, p2
+end
+
+# Named worker: strip to bare axes, call the core, and reattach names — the one extra step vs
+# `project`'s wrapper is minting a single fresh aux `Index` shared by both outputs, so `t1 * t2`
+# contracts them by name.
+function project_pair_itensor(a1, codomain1, domain1, a2, codomain2, domain2)
+    p1, p2 = project_pair(
+        a1, space.(codomain1), space.(domain1),
+        a2, space.(codomain2), space.(domain2),
     )
-    ψ = tryproject(v, (i,))
-    isnothing(ψ) || return ψ
-    raw = project(reshape(v, (length(v), 1)), (space(i),), ())
-    aux = Index(TensorAlgebra.axes(raw, 2))
-    return ITensor(raw, (i, aux))
+    aux = Index(TensorAlgebra.axes(p1, ndims(a1) + 1))
+    t1 = ITensor(p1, (codomain1..., domain1..., aux))
+    t2 = ITensor(p2, (codomain2..., domain2..., aux))
+    return t1, t2
+end
+
+# Named layer (mirrors ITensorBase's named `project`): two entries read operand 1's flavor from
+# whichever of its sides is non-empty (an empty `codomain1` is the all-domain/state mirror of the
+# empty-domain form), so a named operand never falls through to the bare-axis core.
+function project_pair(
+        a1::AbstractArray, codomain1::Tuple{Index, Vararg{Index}}, domain1::Tuple{Vararg{Index}},
+        a2::AbstractArray, codomain2::Tuple{Vararg{Index}}, domain2::Tuple{Vararg{Index}}
+    )
+    return project_pair_itensor(a1, codomain1, domain1, a2, codomain2, domain2)
+end
+function project_pair(
+        a1::AbstractArray, codomain1::Tuple{}, domain1::Tuple{Index, Vararg{Index}},
+        a2::AbstractArray, codomain2::Tuple{Vararg{Index}}, domain2::Tuple{Vararg{Index}}
+    )
+    return project_pair_itensor(a1, codomain1, domain1, a2, codomain2, domain2)
 end
 
 function onehot(eltype::Type, (i, p)::Pair{<:Index})

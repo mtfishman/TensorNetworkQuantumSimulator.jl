@@ -37,12 +37,15 @@ function simple_update(
 
         # The environments are hermitian only up to numerical noise, so project before
         # the square roots (which require hermitian input).
-        sqrt_invsqrt = env -> sqrth_invsqrth_safe(
-            project_hermitian(env, (inds(env)[1],), (inds(env)[2],)),
-            (inds(env)[1],), (inds(env)[2],); atol = sqrt_cutoff, rtol = 0
-        )
-        sqrt_inv_sqrt_envs_v1 = map(sqrt_invsqrt, envs_v1)
-        sqrt_inv_sqrt_envs_v2 = map(sqrt_invsqrt, envs_v2)
+        sqrt_invsqrt = function (env, ψᵥ)
+            ket, bra = commonind(env, ψᵥ), uniqueind(env, ψᵥ)
+            return sqrth_invsqrth_safe(
+                project_hermitian(env, (ket,), (bra,)),
+                (bra,), (ket,); atol = sqrt_cutoff, rtol = 0
+            )
+        end
+        sqrt_inv_sqrt_envs_v1 = map(env -> sqrt_invsqrt(env, ψ⃗[1]), envs_v1)
+        sqrt_inv_sqrt_envs_v2 = map(env -> sqrt_invsqrt(env, ψ⃗[2]), envs_v2)
         sqrt_envs_v1, inv_sqrt_envs_v1 = first.(sqrt_inv_sqrt_envs_v1), last.(sqrt_inv_sqrt_envs_v1)
         sqrt_envs_v2, inv_sqrt_envs_v2 = first.(sqrt_inv_sqrt_envs_v2), last.(sqrt_inv_sqrt_envs_v2)
 
