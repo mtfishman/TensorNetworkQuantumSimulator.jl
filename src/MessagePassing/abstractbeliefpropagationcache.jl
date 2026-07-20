@@ -180,13 +180,11 @@ function updated_message(
     updated_message = contract_network(contract_list; sequence)
 
     if alg.kwargs.normalize
-        codomain, domain = operator_inds(updated_message)
-        # A doubled (ket/bra) network message is a bond operator: normalize by its
-        # trace, which is sign-correct for fermionic bonds (the entrywise `sum` can
-        # flip the message's sign). A single-layer network message is a vector with
-        # no bra/ket pairing and no trace, so fall back to the entrywise sum there.
-        message_norm = if all(in(inds(updated_message)), codomain)
-            tr(updated_message, codomain, domain)
+        # A doubled (ket/bra) network message is a bond operator: normalize by its trace,
+        # which is sign-correct for fermionic bonds (the entrywise `sum` can flip the sign).
+        # A single-layer network message is a vector with no bra/ket pairing, so use `sum`.
+        message_norm = if is_operator(updated_message)
+            tr(updated_message, operator_inds(updated_message)...)
         else
             sum(updated_message)
         end

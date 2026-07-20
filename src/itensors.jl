@@ -13,24 +13,18 @@ using TensorAlgebra: TensorAlgebra, project, tryproject
 # throwing, so the returned ITensor carries that extra aux leg last.
 function project_aux(a::AbstractArray, codomain, domain)
     return @something tryproject(a, codomain, domain) begin
-        raw = project(reshape(a, (size(a)..., 1)), space.(codomain), space.(domain))
-        aux = Index(TensorAlgebra.axes(raw, ndims(a) + 1))
-        ITensor(raw, (codomain..., domain..., aux))
+        projected_a = project(reshape(a, (size(a)..., 1)), space.(codomain), space.(domain))
+        aux = Index(TensorAlgebra.axes(projected_a, ndims(a) + 1))
+        ITensor(projected_a, (codomain..., domain..., aux))
     end
 end
 project_aux(a::AbstractArray, codomain) = project_aux(a, codomain, ())
 project_aux(v::AbstractVector{<:Number}, i::Index) = project_aux(v, (i,))
 
-# Build a pair of tensors that share one contractible auxiliary leg, so `t1 * t2` contracts the
-# pair (e.g. the fermion string of `c†ᵢcⱼ` from a `c†` and a `c`) with no `flip`. `codomain`/`domain`
-# give each operand's own axes; the shared aux is appended to each `domain`. Unlike `project_aux`, we
-# always want the aux, so we go straight to `project` (no `tryproject` fallback). Two layers mirror
-# `project`'s own split: a name-agnostic core, and a named wrapper over it.
-#
-# Name-agnostic core: mint the aux by projecting `a1` with a trailing dummy axis — `project` absorbs
-# `a1`'s residual charge into it — then attach that same aux axis to `a2`. Returns the two raw arrays,
-# each carrying the aux as its trailing axis. Uses only `project`/`reshape`/`axes` (no names), so it
-# could live beside `TensorAlgebra.project`.
+# Build two tensors that share one contractible auxiliary leg, so `t1 * t2` gives the fermion
+# string of e.g. `c†ᵢcⱼ` (a `c†` and a `c`) with no `flip`. The aux is minted by projecting `a1`
+# with a trailing dummy axis, which absorbs `a1`'s residual charge, then attaching it to `a2`.
+# This bare-axis core takes spaces (no names), so it could live beside `TensorAlgebra.project`.
 function project_pair(a1::AbstractArray, codomain1, domain1, a2::AbstractArray, codomain2, domain2)
     p1 = project(reshape(a1, (size(a1)..., 1)), codomain1, domain1)
     aux = TensorAlgebra.axes(p1, ndims(a1) + 1)
@@ -114,6 +108,14 @@ delta(eltype::Type, is::AbstractVector{<:Index}) = delta(eltype, Tuple(is))
 delta(is::Tuple) = delta(Float64, is)
 delta(is::Index...) = delta(Float64, is)
 delta(is::AbstractVector{<:Index}) = delta(Float64, Tuple(is))
+
+# Whether `a` is an operator tensor: its indices are exactly the plev-0 indices paired with
+# their primes. A plain state/vector has the plev-0 indices but not their primed partners.
+function is_operator(a::ITensor)
+    domain = filter(i -> plev(i) == 0, inds(a))
+    codomain = prime.(domain)
+    return issetequal(inds(a), [codomain; domain])
+end
 
 # The codomain/domain bipartition of an operator tensor: each plev-0 index paired with its
 # prime. Viewing the operator as this square map is what `tr` factors through.
