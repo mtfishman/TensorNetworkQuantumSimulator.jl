@@ -25,15 +25,15 @@ TypeParameterAccessors = "7e5a90cf-f82e-492e-a09b-e3e26432c138"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [sources.GradedArrays]
-rev = "mf/diagonal-algebra"
+rev = "main"
 url = "https://github.com/ITensor/GradedArrays.jl"
 
 [sources.ITensorBase]
-rev = "mf/gradedarrays-0.16"
+rev = "main"
 url = "https://github.com/ITensor/ITensorBase.jl"
 
 [sources.TensorAlgebra]
-rev = "mf/diagonal-algebra"
+rev = "main"
 url = "https://github.com/ITensor/TensorAlgebra.jl"
 
 [compat]
@@ -41,7 +41,7 @@ Adapt = "4.3.0"
 Dictionaries = "0.4"
 GradedArrays = "0.16.0"
 Graphs = "1.8.0"
-ITensorBase = "0.13.14"
+ITensorBase = "0.14.0"
 KrylovKit = "0.10.2"
 LinearAlgebra = "1.10"
 MatrixAlgebraKit = "0.6.8"
