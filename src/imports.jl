@@ -36,7 +36,8 @@ using NamedGraphs.GraphsExtensions:
     rem_edge,
     rem_vertex,
     add_edges,
-    rem_vertex!
+    rem_vertex!,
+    incident_edges
 
 using NamedGraphs.NamedGraphGenerators: named_grid, named_hexagonal_lattice_graph, named_comb_tree, named_path_graph
 
@@ -53,6 +54,9 @@ import TensorAlgebra: datatype
 import Base: truncate
 using TensorAlgebra.MatrixAlgebra: sqrth_invsqrth_safe, sqrth_safe
 using MatrixAlgebraKit: project_hermitian
+
+using DataGraphs: DataGraphs, set_vertex_data!, underlying_graph_type
+using ITensorNetworksNext: ITensorNetworksNext, AbstractITensorNetwork, ITensorNetwork, linkinds
 
 using Adapt: adapt
 
