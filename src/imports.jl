@@ -46,9 +46,9 @@ using NamedGraphs.NamedGraphGenerators: named_grid, named_hexagonal_lattice_grap
 # are registered by extending `Ops.op`. The types and string macros are imported for
 # unqualified use (gate definitions dispatch on bare `OpName"…"` / `SiteType"…"`).
 using .Ops: OpName, SiteType, @OpName_str, @SiteType_str
-using ITensorBase: ITensorBase, Index, ITensor, LazyNamedTensor, commonind, commoninds,
-    dimnametype, hascommoninds, lazy, name, noprime, plev, prime, replaceinds, settags, sim,
-    tags, uniqueind, unnamed
+using ITensorBase: ITensorBase, AbstractNamedTensor, Index, ITensor, LazyNamedTensor,
+    commonind, commoninds, dimnametype, hascommoninds, lazy, name, noprime, plev, prime,
+    replaceinds, settags, sim, tags, uniqueind, unnamed
 import ITensorBase: uniqueinds
 using TensorAlgebra: trivialrange, matricize, scalar, directsum
 import TensorAlgebra: datatype
