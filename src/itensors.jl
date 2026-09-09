@@ -4,28 +4,25 @@
 import MatrixAlgebraKit as MAK
 using Adapt: Adapt
 using ITensorBase: ITensorBase, ITensor, Index, inds, noprime, plev, prime, space, unnamed
-using TensorAlgebra: project, tryproject
+using TensorAlgebra: TensorAlgebra, project, tryproject
 
 # Project `a` onto the symmetry-restricted space given by `codomain`/`domain`, mirroring
 # `TensorAlgebra.project`/`tryproject` (three-argument operator form; `a` is indexed positionally
 # as `(codomain..., domain...)`). When the plain projection is charge-forbidden (a parity-odd state
-# or operator), reshaping to a trailing length-1 axis lets `project` derive a named auxiliary index
-# that absorbs the residual charge, so the returned ITensor carries that extra aux leg last instead
-# of throwing.
+# or operator), `TensorAlgebra.project_aux` derives a named auxiliary index that absorbs the residual
+# charge, so the returned ITensor carries that extra aux leg last instead of throwing.
 function project_aux(a::AbstractArray, codomain, domain)
-    return @something tryproject(a, codomain, domain) project(
-        reshape(a, (size(a)..., 1)), codomain, domain
-    )
+    return @something tryproject(a, codomain, domain) TensorAlgebra.project_aux(a, codomain, domain)
 end
 project_aux(a::AbstractArray, codomain) = project_aux(a, codomain, ())
 project_aux(v::AbstractVector{<:Number}, i::Index) = project_aux(v, (i,))
 
 # Build two tensors that share one contractible auxiliary leg, so `t1 * t2` gives the fermion
-# string of e.g. `c†ᵢcⱼ` (a `c†` and a `c`) with no `flip`. Projecting `a1` with a trailing dummy
-# axis derives a named aux `Index` that absorbs `a1`'s residual charge, and feeding that same
-# `Index` into `a2`'s domain makes both carry it, so `t1 * t2` contracts them by name.
+# string of e.g. `c†ᵢcⱼ` (a `c†` and a `c`) with no `flip`. `TensorAlgebra.project_aux` on `a1`
+# derives a named aux `Index` that absorbs `a1`'s residual charge, and feeding that same `Index` into
+# `a2`'s domain makes both carry it, so `t1 * t2` contracts them by name.
 function project_pair(a1::AbstractArray, codomain1, domain1, a2::AbstractArray, codomain2, domain2)
-    p1 = project(reshape(a1, (size(a1)..., 1)), codomain1, domain1)
+    p1 = TensorAlgebra.project_aux(a1, codomain1, domain1)
     aux = last(inds(p1))
     p2 = project(reshape(a2, (size(a2)..., 1)), codomain2, (domain2..., aux))
     return p1, p2
